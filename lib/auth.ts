@@ -1,5 +1,8 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
+import { eq } from "drizzle-orm";
+import { admins } from "@/db/schema";
+import { getDb } from "@/lib/db";
 
 const secret = () => new TextEncoder().encode(process.env.SESSION_SECRET ?? "development-only-secret-change-before-production");
 
@@ -19,5 +22,13 @@ export async function createAdminToken(session: AdminSession) {
 export async function getAdminSession(): Promise<AdminSession | null> {
   const token = (await cookies()).get("coeva_admin")?.value;
   if (!token) return null;
-  try { return (await jwtVerify(token, secret())).payload as unknown as AdminSession; } catch { return null; }
+  try {
+    const session = (await jwtVerify(token, secret())).payload as unknown as AdminSession;
+    try {
+      const rows = await getDb().select({ email: admins.email, name: admins.name, role: admins.role, active: admins.active }).from(admins).where(eq(admins.email, session.email)).limit(1);
+      if (rows.length && !rows[0].active) return null;
+      if (rows.length) return { email: rows[0].email, name: rows[0].name, role: rows[0].role };
+    } catch { /* Local demo mode has no database. */ }
+    return session;
+  } catch { return null; }
 }

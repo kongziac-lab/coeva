@@ -7,9 +7,9 @@ export const policyStatus = pgEnum("policy_status", ["NORMAL", "WARNING", "RESTR
 
 export const admins = pgTable("admins", {
   id: uuid("id").defaultRandom().primaryKey(), email: text("email").notNull(), name: text("name").notNull(),
-  passwordHash: text("password_hash").notNull(), role: adminRole("role").notNull(), active: boolean("active").default(true).notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-}, (t) => [uniqueIndex("admins_email_idx").on(t.email)]);
+  passwordHash: text("password_hash"), googleSubject: text("google_subject"), role: adminRole("role").notNull(), active: boolean("active").default(true).notNull(),
+  lastLoginAt: timestamp("last_login_at", { withTimezone: true }), createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [uniqueIndex("admins_email_idx").on(t.email), uniqueIndex("admins_google_subject_idx").on(t.googleSubject)]);
 
 export const terms = pgTable("terms", {
   id: uuid("id").defaultRandom().primaryKey(), code: text("code").notNull(), name: text("name").notNull(),
