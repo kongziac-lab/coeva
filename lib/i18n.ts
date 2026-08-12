@@ -1,0 +1,19 @@
+export const locales = ["ko", "en", "zh", "vi", "mn"] as const;
+export type Locale = (typeof locales)[number];
+
+type Copy = { title: string; subtitle: string; progress: string; comment: string; optional: string; back: string; next: string; submit: string; scale: [string, string]; privacy: string; done: string; doneBody: string; questions: string[] };
+
+export const copy: Record<Locale, Copy> = {
+  ko: { title: "강의평가", subtitle: "각 강사의 수업을 솔직하게 평가해 주세요.", progress: "강사", comment: "강사에게 전하고 싶은 의견이 있나요?", optional: "선택사항", back: "이전", next: "다음 강사", submit: "평가 제출", scale: ["전혀 그렇지 않다", "매우 그렇다"], privacy: "응답은 익명으로 저장되며 참여 여부와 분리됩니다.", done: "평가가 완료되었습니다", doneBody: "소중한 의견을 보내주셔서 감사합니다.", questions: surveyQuestions },
+  en: { title: "Course evaluation", subtitle: "Please evaluate each instructor honestly.", progress: "Instructor", comment: "Is there anything you would like to tell this instructor?", optional: "Optional", back: "Back", next: "Next instructor", submit: "Submit evaluation", scale: ["Strongly disagree", "Strongly agree"], privacy: "Your answers are anonymous and stored separately from participation.", done: "Evaluation complete", doneBody: "Thank you for sharing your feedback.", questions: ["The instructor was well prepared and organized.", "The instructor explained clearly at my level.", "The instructor encouraged participation and interaction.", "The instructor provided helpful feedback.", "Course materials were used effectively.", "Class time and pace were managed appropriately.", "Overall, I am satisfied with this instructor’s class."] },
+  zh: { title: "课程评价", subtitle: "请如实评价每位教师的课程。", progress: "教师", comment: "您有什么想对这位教师说的吗？", optional: "选填", back: "上一位", next: "下一位教师", submit: "提交评价", scale: ["非常不同意", "非常同意"], privacy: "您的回答将匿名保存，并与参与记录分开。", done: "评价已完成", doneBody: "感谢您提供宝贵意见。", questions: ["教师备课充分，教学安排有条理。", "教师能根据学习者水平进行清晰讲解。", "教师提供了参与课堂和互动的机会。", "教师提供了有助于学习的反馈。", "教师有效使用了教材和课堂资料。", "教师合理安排了课堂时间和教学进度。", "总体而言，我对这位教师的课程感到满意。"] },
+  vi: { title: "Đánh giá khóa học", subtitle: "Vui lòng đánh giá trung thực từng giảng viên.", progress: "Giảng viên", comment: "Bạn có điều gì muốn gửi đến giảng viên này không?", optional: "Không bắt buộc", back: "Quay lại", next: "Giảng viên tiếp theo", submit: "Gửi đánh giá", scale: ["Hoàn toàn không đồng ý", "Hoàn toàn đồng ý"], privacy: "Câu trả lời được lưu ẩn danh và tách khỏi trạng thái tham gia.", done: "Đã hoàn thành đánh giá", doneBody: "Cảm ơn bạn đã chia sẻ ý kiến.", questions: ["Giảng viên chuẩn bị bài đầy đủ và tổ chức lớp học có hệ thống.", "Giảng viên giải thích rõ ràng, phù hợp với trình độ người học.", "Giảng viên tạo cơ hội để sinh viên tham gia và tương tác.", "Giảng viên đưa ra phản hồi hữu ích cho việc học.", "Giáo trình và tài liệu được sử dụng hiệu quả.", "Thời gian và tốc độ lớp học được điều hành phù hợp.", "Nhìn chung, tôi hài lòng với lớp học của giảng viên này."] },
+  mn: { title: "Хичээлийн үнэлгээ", subtitle: "Багш бүрийн хичээлийг үнэн зөв үнэлнэ үү.", progress: "Багш", comment: "Энэ багшид хэлэх санал байна уу?", optional: "Заавал биш", back: "Буцах", next: "Дараагийн багш", submit: "Үнэлгээ илгээх", scale: ["Огт санал нийлэхгүй", "Бүрэн санал нийлнэ"], privacy: "Хариултыг нэргүй хадгалж, оролцооны мэдээллээс тусгаарлана.", done: "Үнэлгээ дууслаа", doneBody: "Санал бодлоо хуваалцсанд баярлалаа.", questions: ["Багш хичээлдээ сайн бэлтгэж, зохион байгуулалттай явуулсан.", "Багш суралцагчийн түвшинд тохируулан ойлгомжтой тайлбарласан.", "Оролцоо, харилцан үйлчлэлийн боломж олгосон.", "Суралцахад тустай санал хүсэлт өгсөн.", "Сурах бичиг, материалыг үр дүнтэй ашигласан.", "Хичээлийн цаг, хурдыг зохистой удирдсан.", "Ерөнхийдөө энэ багшийн хичээлд сэтгэл хангалуун байна."] },
+};
+
+import { surveyQuestions } from "./demo-data";
+
+export function normalizeLocale(value: string | undefined): Locale {
+  const base = value?.toLowerCase().split("-")[0];
+  return locales.includes(base as Locale) ? base as Locale : "ko";
+}

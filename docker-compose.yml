@@ -1,0 +1,25 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: coeva
+      POSTGRES_USER: coeva
+      POSTGRES_PASSWORD: coeva-local-only
+    ports: ["5432:5432"]
+    volumes: ["coeva-db:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U coeva"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  app:
+    build: .
+    depends_on:
+      db: { condition: service_healthy }
+    environment:
+      DATABASE_URL: postgresql://coeva:coeva-local-only@db:5432/coeva
+      SESSION_SECRET: local-development-secret-change-in-production
+      APP_URL: http://localhost:3000
+    ports: ["3000:3000"]
+volumes:
+  coeva-db:
