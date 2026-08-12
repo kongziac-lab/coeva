@@ -1,19 +1,11 @@
-import Link from "next/link";
 import QRCode from "qrcode";
-import { Clock3, ExternalLink, Play, QrCode, Radio, Square, Users } from "lucide-react";
+import { Play } from "lucide-react";
 import { AdminShell } from "@/components/admin-shell";
+import { SessionOperatorPanel, SessionClass } from "@/components/session-operator-panel";
 import { liveClasses } from "@/lib/demo-data";
 
 export default async function SessionsPage() {
-  const appUrl = process.env.APP_URL ?? "http://localhost:3000";
-  const qr = await QRCode.toDataURL(`${appUrl}/survey/demo-134`, { width: 340, margin: 1, color: { dark: "#102b4e", light: "#ffffff" } });
-  return <AdminShell active="/admin/sessions" title="현장 평가">
-    <div className="content"><div className="page-head"><div><h1>현장 평가 운영</h1><p>조사 대상 인원을 확인한 후 반별 임시 QR을 열어 주세요.</p></div><button className="btn btn-primary"><Play size={16}/>다음 반 시작</button></div>
-      <section className="grid-2" style={{gridTemplateColumns:'minmax(360px,.85fr) 1.4fr'}}>
-        <div className="card" style={{padding:24,textAlign:'center'}}><div style={{display:'flex',justifyContent:'space-between',textAlign:'left'}}><div><span className="status NORMAL"><Radio size={11}/> 진행 중</span><h2 style={{margin:'10px 0 2px'}}>1반 · 134호</h2><div style={{color:'#65758a',fontSize:13}}>정재영 · 안혜진 강사</div></div><div style={{color:'#65758a',fontSize:12}}><Clock3 size={14}/> 10:00–10:05</div></div><img src={qr} alt="1반 강의평가 QR 코드" style={{width:'min(280px,100%)',margin:'25px auto 12px',display:'block'}}/><p style={{fontSize:13,color:'#65758a'}}>학생들에게 이 QR을 보여주세요.<br/>종료 즉시 주소가 폐기됩니다.</p><Link href="/survey/demo-134" target="_blank" className="btn btn-secondary" style={{width:'100%',marginTop:8}}>학생 화면 미리보기 <ExternalLink size={15}/></Link><button className="btn btn-danger" style={{width:'100%',marginTop:10}}><Square size={14}/>평가 종료</button></div>
-        <div className="card"><div className="panel-head"><h2>제출 현황</h2><span>자동 갱신</span></div><div style={{padding:'0 22px 20px'}}><div className="stat-grid" style={{gridTemplateColumns:'repeat(3,1fr)',marginBottom:20}}><div className="stat" style={{boxShadow:'none',background:'#f7f9fc'}}><div className="stat-label">조사 대상</div><div className="stat-value">18명</div></div><div className="stat" style={{boxShadow:'none',background:'#f7f9fc'}}><div className="stat-label">완료</div><div className="stat-value" style={{color:'#25a67a'}}>16명</div></div><div className="stat" style={{boxShadow:'none',background:'#f7f9fc'}}><div className="stat-label">참여율</div><div className="stat-value">88.9%</div></div></div><div style={{display:'grid',gap:12}}>{["정재영","안혜진"].map((name,i)=><div key={name} style={{border:'1px solid #e3e9f0',borderRadius:13,padding:16,display:'flex',justifyContent:'space-between',alignItems:'center'}}><div><strong>{name} 강사</strong><div style={{fontSize:12,color:'#65758a',marginTop:3}}>유효 응답 · 익명 저장</div></div><div style={{fontWeight:800}}>{16-i} / 18</div></div>)}</div><div style={{marginTop:22,padding:15,borderRadius:12,background:'#fff8e8',fontSize:12,color:'#805914',lineHeight:1.6}}><strong>대상 인원 검증</strong><br/>KGAS 당일 출결 18명과 조사자가 입력한 대상 인원이 일치합니다.</div></div></div>
-      </section>
-      <section className="card table-card"><div className="panel-head"><h2>오늘의 방문 일정</h2><span>4 / 76개 반</span></div><table className="data-table"><thead><tr><th>시간</th><th>반 / 강의실</th><th>평가 대상 강사</th><th>대상</th><th>제출</th><th>상태</th><th></th></tr></thead><tbody>{liveClasses.map((r)=><tr key={r.classCode}><td><strong>{r.time}</strong></td><td>{r.classCode} · {r.room}호</td><td>{r.instructors.join(", ")}</td><td><Users size={13}/> {r.target}명</td><td>{r.submitted}명</td><td><span className={`status ${r.status==='ACTIVE'?'NORMAL':'INSUFFICIENT'}`}>{r.status==='ACTIVE'?'진행 중':'시작 대기'}</span></td><td><button className="btn btn-secondary" style={{padding:'7px 10px'}}><QrCode size={14}/>열기</button></td></tr>)}</tbody></table></section>
-    </div>
-  </AdminShell>;
+  const appUrl = process.env.APP_URL ?? "https://coeva.vercel.app";
+  const classes: SessionClass[] = await Promise.all(liveClasses.map(async (item, index) => ({ ...item, qr: await QRCode.toDataURL(`${appUrl}/survey/demo-134?class=${item.classCode}`, { width: 420, margin: 1, color: { dark: "#102b4e", light: "#ffffff" } }), surveyUrl: "/survey/demo-134" }))) as SessionClass[];
+  return <AdminShell active="/admin/sessions" title="현장 평가"><div className="content"><div className="page-head"><div><h1>현장 평가 운영</h1><p>조사할 반을 선택한 뒤 임시 QR을 학생들에게 공유하세요.</p></div><button className="btn btn-primary"><Play size={16} /> 다음 반 시작</button></div><SessionOperatorPanel classes={classes} /></div></AdminShell>;
 }
