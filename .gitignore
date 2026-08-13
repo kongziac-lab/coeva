@@ -3,7 +3,6 @@ node_modules
 .next
 .env
 coverage
-db/migrations/meta
 *.log
 
 .vercel

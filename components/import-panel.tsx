@@ -34,9 +34,10 @@ export function ImportPanel() {
     const data = new FormData(); data.append("file", file);
     try {
       const response = await fetch("/api/admin/import", { method: "POST", body: data });
-      if (!response.ok) throw new Error();
+      const result = await response.json() as { message?: string };
+      if (!response.ok) throw new Error(result.message ?? "일정을 가져오지 못했습니다.");
       setComplete(true);
-    } catch { setError("데이터베이스 연결 또는 파일 내용을 확인해 주세요."); }
+    } catch (uploadError) { setError(uploadError instanceof Error ? uploadError.message : "일정을 가져오지 못했습니다."); }
     finally { setUploading(false); }
   }
 
