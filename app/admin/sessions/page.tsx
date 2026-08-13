@@ -1,11 +1,23 @@
-import QRCode from "qrcode";
-import { Play } from "lucide-react";
+import { asc, eq } from "drizzle-orm";
 import { AdminShell } from "@/components/admin-shell";
 import { SessionOperatorPanel, SessionClass } from "@/components/session-operator-panel";
-import { liveClasses } from "@/lib/demo-data";
+import { classes, evaluationSessions, instructors, teachingAssignments } from "@/db/schema";
+import { getDb } from "@/lib/db";
 
 export default async function SessionsPage() {
-  const appUrl = process.env.APP_URL ?? "https://coeva.vercel.app";
-  const classes: SessionClass[] = await Promise.all(liveClasses.map(async (item, index) => ({ ...item, qr: await QRCode.toDataURL(`${appUrl}/survey/demo-134?class=${item.classCode}`, { width: 420, margin: 1, color: { dark: "#102b4e", light: "#ffffff" } }), surveyUrl: "/survey/demo-134" }))) as SessionClass[];
-  return <AdminShell active="/admin/sessions" title="현장 평가"><div className="content"><div className="page-head"><div><h1>현장 평가 운영</h1><p>조사할 반을 선택한 뒤 임시 QR을 학생들에게 공유하세요.</p></div><button className="btn btn-primary"><Play size={16} /> 다음 반 시작</button></div><SessionOperatorPanel classes={classes} /></div></AdminShell>;
+  let sessionClasses: SessionClass[] = [];
+  try {
+    const db = getDb();
+    const [classRows, assignmentRows, activeRows] = await Promise.all([
+      db.select().from(classes).orderBy(asc(classes.scheduledAt)),
+      db.select({classId:teachingAssignments.classId,name:instructors.name}).from(teachingAssignments).innerJoin(instructors,eq(teachingAssignments.instructorId,instructors.id)).orderBy(asc(teachingAssignments.position)),
+      db.select({id:evaluationSessions.id,classId:evaluationSessions.classId,status:evaluationSessions.status,target:evaluationSessions.targetCount}).from(evaluationSessions).where(eq(evaluationSessions.status,"ACTIVE")),
+    ]);
+    sessionClasses = classRows.map(row => {
+      const active = activeRows.find(item => item.classId === row.id);
+      const formatter = new Intl.DateTimeFormat("ko-KR", { timeZone:"Asia/Seoul", hour:"2-digit", minute:"2-digit", hour12:false });
+      return { id:row.id, room:row.room, classCode:`${row.code}반`, time:`${formatter.format(row.scheduledAt)}–${formatter.format(row.scheduledEndAt)}`, instructors:assignmentRows.filter(item=>item.classId===row.id).map(item=>item.name), target:active?.target??row.eligibleCount, submitted:0, status:active?"ACTIVE":"READY", sessionId:active?.id??null };
+    });
+  } catch { /* Show empty state. */ }
+  return <AdminShell active="/admin/sessions" title="현장 평가"><div className="content"><div className="page-head"><div><h1>현장 평가 운영</h1><p>조사할 반을 선택하고 대상 인원을 입력한 뒤 임시 QR을 생성하세요.</p></div></div>{sessionClasses.length>0?<SessionOperatorPanel classes={sessionClasses}/>:<section className="card" style={{padding:36,textAlign:"center",color:'#65758a'}}>등록된 평가 일정이 없습니다. 시스템 관리자가 먼저 엑셀 일정을 가져와야 합니다.</section>}</div></AdminShell>;
 }
