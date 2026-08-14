@@ -100,3 +100,12 @@ a { color: inherit; text-decoration: none; }
 .logout-button:hover { background:rgba(255,255,255,.1); color:#fff; }
 .top-logout { color:#65758a; border:1px solid var(--line); background:#fff; }
 .top-logout:hover { color:#b33232; background:#fff0f0; }
+/* Mobile-friendly instructor photo zoom */
+.teacher-photo-button { width:100%; height:100%; padding:0; border:0; display:block; background:transparent; cursor:zoom-in; }
+.teacher-photo-button:focus-visible { outline:3px solid #8bbcff; outline-offset:3px; }
+.photo-modal { position:fixed; inset:0; z-index:40; background:rgba(8,24,43,.82); display:grid; place-items:center; padding:18px; }
+.photo-modal-card { position:relative; width:min(92vw,520px); max-height:92vh; overflow:auto; background:#fff; border-radius:20px; padding:18px; display:grid; justify-items:center; gap:8px; text-align:center; box-shadow:0 25px 80px rgba(0,0,0,.35); }
+.photo-modal-card img { width:auto; max-width:100%; max-height:78vh; object-fit:contain; border-radius:12px; }
+.photo-modal-card strong { color:var(--ink); }
+.photo-modal-card span { color:var(--muted); font-size:12px; }
+.photo-modal-close { position:absolute; top:10px; right:10px; width:36px; height:36px; display:grid; place-items:center; border:0; border-radius:50%; background:#edf1f5; color:var(--ink); cursor:pointer; }

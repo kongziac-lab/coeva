@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Check, LockKeyhole, UserRound } from "lucide-react";
+import { Check, LockKeyhole, UserRound, X } from "lucide-react";
 import { copy, languageNames, Locale, locales } from "@/lib/i18n";
 
 export type SurveyInstructor = { assignmentId: string; name: string; photoUrl: string | null };
@@ -25,6 +25,7 @@ export function SurveyForm({ classCode, room, instructors, token }: SurveyFormPr
   const [receipt, setReceipt] = useState("");
   const [answers, setAnswers] = useState<Record<number, number[]>>({});
   const [comments, setComments] = useState<Record<number, string>>({});
+  const [photoZoom, setPhotoZoom] = useState(false);
 
   const t = copy[locale];
   const current = answers[step] ?? Array(7).fill(0);
@@ -41,6 +42,15 @@ export function SurveyForm({ classCode, room, instructors, token }: SurveyFormPr
       localStorage.setItem("coeva_device", `${crypto.randomUUID()}${crypto.randomUUID()}`);
     }
   }, []);
+
+  useEffect(() => {
+    if (!photoZoom) return;
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setPhotoZoom(false);
+    }
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [photoZoom]);
 
   function setRating(question: number, value: number) {
     setAnswers((all) => ({
@@ -155,7 +165,7 @@ export function SurveyForm({ classCode, room, instructors, token }: SurveyFormPr
       <section className="card teacher-card">
         <div className="teacher-heading">
           <div className="teacher-photo-wrap">
-            {instructor.photoUrl ? <img className="teacher-photo" src={instructor.photoUrl} alt={`${instructor.name} ${t.instructorSuffix}`} /> : <UserRound size={38} aria-hidden="true" />}
+            {instructor.photoUrl ? <button className="teacher-photo-button" type="button" onClick={() => setPhotoZoom(true)} aria-label={`${instructor.name} ${t.instructorSuffix} 사진 확대`}><img className="teacher-photo" src={instructor.photoUrl} alt={`${instructor.name} ${t.instructorSuffix}`} /></button> : <UserRound size={38} aria-hidden="true" />}
           </div>
           <div><div className="teacher-kicker">{t.progress} {step + 1} / {instructors.length}</div><div className="teacher-name">{instructor.name} {t.instructorSuffix}</div><span className="class-chip">{classCode} · {room}</span></div>
         </div>
@@ -180,6 +190,7 @@ export function SurveyForm({ classCode, room, instructors, token }: SurveyFormPr
         </div>
       </section>
       <div className="privacy-note"><LockKeyhole size={13} />{t.privacy}</div>
+      {photoZoom && instructor.photoUrl && <div className="photo-modal" role="dialog" aria-modal="true" aria-label={`${instructor.name} ${t.instructorSuffix} 사진`} onClick={() => setPhotoZoom(false)}><div className="photo-modal-card" onClick={(event) => event.stopPropagation()}><button className="photo-modal-close" type="button" onClick={() => setPhotoZoom(false)} aria-label="사진 닫기"><X size={20} /></button><img src={instructor.photoUrl} alt={`${instructor.name} ${t.instructorSuffix}`} /><strong>{instructor.name} {t.instructorSuffix}</strong><span>화면을 탭하거나 닫기 버튼을 눌러 닫습니다.</span></div></div>}
     </div></main>
   );
 }
