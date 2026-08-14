@@ -46,7 +46,7 @@ export const evaluationSessions = pgTable("evaluation_sessions", {
 
 export const participation = pgTable("participation", {
   id: uuid("id").defaultRandom().primaryKey(), sessionId: uuid("session_id").notNull().references(() => evaluationSessions.id),
-  subjectHash: text("subject_hash").notNull(), deviceHash: text("device_hash").notNull(), status: participationStatus("status").default("NOT_STARTED").notNull(),
+  subjectHash: text("subject_hash").notNull(), deviceHash: text("device_hash").notNull(), status: participationStatus("status").default("NOT_STARTED").notNull(), lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
   completedAssignments: integer("completed_assignments").default(0).notNull(), completedAt: timestamp("completed_at", { withTimezone: true }),
 }, (t) => [uniqueIndex("participation_subject_idx").on(t.sessionId, t.subjectHash), uniqueIndex("participation_device_idx").on(t.sessionId, t.deviceHash)]);
 

@@ -19,6 +19,7 @@ export function SurveyForm({ classCode, room, instructors, token }: SurveyFormPr
   const [started, setStarted] = useState(false);
   const [step, setStep] = useState(0);
   const [done, setDone] = useState(false);
+  const [starting, setStarting] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [receipt, setReceipt] = useState("");
@@ -47,6 +48,33 @@ export function SurveyForm({ classCode, room, instructors, token }: SurveyFormPr
       [step]: (all[step] ?? Array(7).fill(0)).map((answer, index) => index === question ? value : answer),
     }));
   }
+
+  async function startEvaluation() {
+    if (!token) { setStarted(true); return; }
+    setStarting(true); setSubmitError("");
+    try {
+      const response = await fetch(`/api/survey/${encodeURIComponent(token)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ deviceId: localStorage.getItem("coeva_device") }) });
+      const body = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(body.error === "already_submitted" ? t.duplicateError : t.submitError);
+      setStarted(true);
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : t.submitError);
+    } finally { setStarting(false); }
+  }
+
+  useEffect(() => {
+    if (!started || done || !token) return;
+    const surveyToken = token;
+    let cancelled = false;
+    async function heartbeat() {
+      try {
+        const response = await fetch(`/api/survey/${encodeURIComponent(surveyToken)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ deviceId: localStorage.getItem("coeva_device") }) });
+        if (!response.ok && !cancelled) setSubmitError(t.submitError);
+      } catch { /* The next heartbeat retries. */ }
+    }
+    const timer = window.setInterval(heartbeat, 15000);
+    return () => { cancelled = true; window.clearInterval(timer); };
+  }, [started, done, token, t.submitError]);
 
   async function finish() {
     if (!token) {
@@ -110,7 +138,8 @@ export function SurveyForm({ classCode, room, instructors, token }: SurveyFormPr
           <div className="notice-lock"><LockKeyhole size={24} /></div>
           <h2>{t.noticeTitle}</h2><p>{t.noticeBody}</p>
           <label className="notice-check"><input type="checkbox" checked={noticeAccepted} onChange={(event) => setNoticeAccepted(event.target.checked)} /><span>{t.noticeConfirm}</span></label>
-          <button className="btn btn-primary full-button" type="button" disabled={!noticeAccepted} onClick={() => setStarted(true)}>{t.start}</button>
+          {submitError && <div className="error" role="alert">{submitError}</div>}
+          <button className="btn btn-primary full-button" type="button" disabled={!noticeAccepted || starting} onClick={startEvaluation}>{starting ? t.submitting : t.start}</button>
         </section>
         <div className="privacy-note"><LockKeyhole size={13} />{t.privacy}</div>
       </div>
