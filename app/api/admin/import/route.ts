@@ -9,7 +9,7 @@ type ImportError = Error & { code?: string };
 
 class ScheduleValidationError extends Error {}
 
-function partsFromDate(value: unknown) {
+function partsFromDate(value: unknown, defaultYear = new Date().getFullYear()) {
   if (value instanceof Date && !Number.isNaN(value.getTime())) {
     return { year: value.getUTCFullYear(), month: value.getUTCMonth() + 1, day: value.getUTCDate() };
   }
@@ -19,6 +19,10 @@ function partsFromDate(value: unknown) {
   }
   const match = String(value ?? "").trim().match(/^(\d{4})[./-](\d{1,2})[./-](\d{1,2})/);
   if (match) return { year: Number(match[1]), month: Number(match[2]), day: Number(match[3]) };
+  const koreanMatch = String(value ?? "").trim().match(/^(?:(\d{4})\s*[년.\/-]\s*)?(\d{1,2})\s*월\s*(\d{1,2})\s*일/);
+  if (koreanMatch) return { year: Number(koreanMatch[1] ?? defaultYear), month: Number(koreanMatch[2]), day: Number(koreanMatch[3]) };
+  const shortMatch = String(value ?? "").trim().match(/^(?:(\d{4})[./-])?(\d{1,2})[./-](\d{1,2})/);
+  if (shortMatch) return { year: Number(shortMatch[1] ?? defaultYear), month: Number(shortMatch[2]), day: Number(shortMatch[3]) };
   return null;
 }
 
@@ -35,8 +39,8 @@ function partsFromTime(value: unknown) {
   return null;
 }
 
-function koreaDateTime(dateValue: unknown, timeValue: unknown) {
-  const date = partsFromDate(dateValue);
+function koreaDateTime(dateValue: unknown, timeValue: unknown, defaultYear?: number) {
+  const date = partsFromDate(dateValue, defaultYear);
   const time = partsFromTime(timeValue);
   if (!date || !time || time.hour > 23 || time.minute > 59) return null;
   const pad = (value: number) => String(value).padStart(2, "0");
@@ -70,18 +74,22 @@ export async function POST(request: Request) {
   }
 
   try {
-    const workbook = XLSX.read(await file.arrayBuffer(), { type: "array", cellDates: true });
+    // Keep Excel serials for time cells. SheetJS can turn time-only cells into
+    // timezone-shifted Date objects when cellDates is enabled.
+    const workbook = XLSX.read(await file.arrayBuffer(), { type: "array", cellDates: false });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     if (!sheet) return NextResponse.json({ error: "empty_file", message: "첫 번째 시트가 비어 있습니다." }, { status: 400 });
     const raw = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: null });
+    const titleYear = String(raw[0]?.[0] ?? "").match(/(20\d{2})\s*학년도/);
+    const defaultYear = titleYear ? Number(titleYear[1]) : new Date().getFullYear();
     const sourceRows = raw.slice(1).filter((row) => Array.isArray(row) && row[3]);
     if (!sourceRows.length) return NextResponse.json({ error: "empty_file", message: "가져올 반 일정이 없습니다." }, { status: 400 });
 
     let carriedDate: unknown = null;
     const rows = sourceRows.map((row, index) => {
       if (row[0] !== null && String(row[0]).trim() !== "") carriedDate = row[0];
-      const scheduledAt = koreaDateTime(carriedDate, row[1]);
-      const scheduledEndAt = koreaDateTime(carriedDate, row[2]);
+      const scheduledAt = koreaDateTime(carriedDate, row[1], defaultYear);
+      const scheduledEndAt = koreaDateTime(carriedDate, row[2], defaultYear);
       const instructorNames = row.slice(5, 9).filter(Boolean).map((name) => String(name).trim()).filter(Boolean);
       if (!scheduledAt || !scheduledEndAt || scheduledEndAt <= scheduledAt || !String(row[4] ?? "").trim() || instructorNames.length < 1) {
         throw new ScheduleValidationError(`${index + 2}행의 일자, 시간, 강의실 또는 강사를 확인해 주세요.`);

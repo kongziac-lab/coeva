@@ -17,7 +17,7 @@ export function ImportPanel() {
   async function select(selected: File) {
     setFile(selected); setName(selected.name); setError(""); setComplete(false);
     try {
-      const book = XLSX.read(await selected.arrayBuffer(), { type: "array", cellDates: true });
+      const book = XLSX.read(await selected.arrayBuffer(), { type: "array", cellDates: false });
       const raw = XLSX.utils.sheet_to_json<unknown[]>(book.Sheets[book.SheetNames[0]], { header: 1, defval: null });
       const parsed = raw.slice(1).filter((r) => Array.isArray(r) && r[3]).map((r: unknown[]) => ({
         date: String(r[0] ?? ""), start: formatTime(r[1]), end: formatTime(r[2]), classCode: String(r[3]), room: String(r[4]),
