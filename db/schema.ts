@@ -18,7 +18,7 @@ export const terms = pgTable("terms", {
 }, (t) => [uniqueIndex("terms_code_idx").on(t.code)]);
 
 export const instructors = pgTable("instructors", {
-  id: uuid("id").defaultRandom().primaryKey(), externalId: text("external_id"), name: text("name").notNull(), active: boolean("active").default(true).notNull(),
+  id: uuid("id").defaultRandom().primaryKey(), externalId: text("external_id"), name: text("name").notNull(), photoData: text("photo_data"), active: boolean("active").default(true).notNull(),
 }, (t) => [index("instructors_name_idx").on(t.name)]);
 
 export const classes = pgTable("classes", {

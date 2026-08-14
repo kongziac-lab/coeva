@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { anonymousResponses, classes, evaluationSessions, participation, questionnaireVersions, teachingAssignments, instructors } from "@/db/schema";
 import { getDb } from "@/lib/db";
@@ -20,8 +20,8 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ token:
   try {
     const { token } = await params; const session = await findSession(token);
     if (!session || session.status !== "ACTIVE" || !session.expiresAt || session.expiresAt <= new Date()) return NextResponse.json({ error:"session_unavailable" },{status:410});
-    const db=getDb(); const assigned=await db.select({assignmentId:teachingAssignments.id,name:instructors.name}).from(teachingAssignments).innerJoin(instructors,eq(teachingAssignments.instructorId,instructors.id)).where(eq(teachingAssignments.classId,session.classId)).orderBy(teachingAssignments.position);
-    return NextResponse.json({classCode:session.classCode,room:session.room,instructors:assigned.map(a=>a.name),assignments:assigned,questions:session.questions},{headers:{"cache-control":"no-store"}});
+    const db=getDb(); const assigned=await db.select({assignmentId:teachingAssignments.id,instructorId:instructors.id,name:instructors.name,hasPhoto:sql<boolean>`${instructors.photoData} is not null`}).from(teachingAssignments).innerJoin(instructors,eq(teachingAssignments.instructorId,instructors.id)).where(eq(teachingAssignments.classId,session.classId)).orderBy(teachingAssignments.position);
+    return NextResponse.json({classCode:session.classCode,room:session.room,instructors:assigned.map(({assignmentId,instructorId,name,hasPhoto})=>({assignmentId,name,photoUrl:hasPhoto?`/api/instructors/${instructorId}/photo`:null})),questions:session.questions},{headers:{"cache-control":"no-store"}});
   } catch { return NextResponse.json({error:"service_unavailable"},{status:503}); }
 }
 

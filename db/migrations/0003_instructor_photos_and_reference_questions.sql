@@ -1,0 +1,5 @@
+ALTER TABLE "instructors" ADD COLUMN IF NOT EXISTS "photo_data" text;
+--> statement-breakpoint
+UPDATE "questionnaire_versions"
+SET "questions" = '["선생님은 수업시간을 잘 지키고 성실하게 가르쳤다.","선생님은 학생의 질문 및 상담에 성실하게 응하였다.","선생님은 이해하기 쉽게 가르쳤다.","숙제의 양과 내용은 적절하며 숙제에 대한 피드백은 충분하였다.","선생님은 필요한 때에 적절한 부교재 및 참고자료를 사용하였다.","선생님은 나의 한국어 능력 향상을 위하여 많은 도움을 주었다.","나는 선생님의 수업을 수강한 것에 대해 만족한다."]'::jsonb
+WHERE "locked_at" IS NULL;
