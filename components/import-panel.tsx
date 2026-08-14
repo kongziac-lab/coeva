@@ -4,7 +4,7 @@ import { useState } from "react";
 import { CheckCircle2, FileSpreadsheet, UploadCloud } from "lucide-react";
 import * as XLSX from "xlsx";
 
-type Preview = { date: string; start: string; end: string; classCode: string; room: string; instructors: string[] };
+type Preview = { date: string; start: string; end: string; classCode: string; room: string; instructors: string[]; target: number };
 
 export function ImportPanel() {
   const [rows, setRows] = useState<Preview[]>([]);
@@ -21,7 +21,7 @@ export function ImportPanel() {
       const raw = XLSX.utils.sheet_to_json<unknown[]>(book.Sheets[book.SheetNames[0]], { header: 1, defval: null });
       const parsed = raw.slice(1).filter((r) => Array.isArray(r) && r[3]).map((r: unknown[]) => ({
         date: String(r[0] ?? ""), start: formatTime(r[1]), end: formatTime(r[2]), classCode: String(r[3]), room: String(r[4]),
-        instructors: r.slice(5, 9).filter(Boolean).map(String),
+        instructors: r.slice(5, 9).filter(Boolean).map(String), target: Number(String(r[9] ?? "").replace(/[^0-9]/g, "")) || 0,
       }));
       if (!parsed.length) throw new Error();
       setRows(parsed);
@@ -50,7 +50,7 @@ export function ImportPanel() {
     {complete && <div style={{ marginTop: 14, padding: 12, borderRadius: 10, background: "#e7f7f1", color: "#13775b", fontSize: 13 }}>{rows.length}개 반을 성공적으로 가져왔습니다.</div>}
     {rows.length > 0 && <>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "20px 0 12px" }}><div style={{ display: "flex", gap: 9, alignItems: "center" }}><FileSpreadsheet size={20} color="#25a67a"/><div><strong>{name}</strong><div style={{ fontSize: 11, color: "#65758a" }}>{rows.length}개 반 · 형식 검증 완료</div></div></div><span className="status NORMAL"><CheckCircle2 size={12}/> 가져오기 준비</span></div>
-      <div className="table-card" style={{ border: "1px solid #dfe6ef", borderRadius: 14, maxHeight: 420, overflow: "auto" }}><table className="data-table"><thead><tr><th>일자</th><th>시간</th><th>반</th><th>강의실</th><th>강사</th></tr></thead><tbody>{rows.slice(0, 15).map((r, i) => <tr key={i}><td>{r.date || "앞 행과 동일"}</td><td>{r.start}–{r.end}</td><td>{r.classCode}반</td><td>{r.room}</td><td>{r.instructors.join(", ")}</td></tr>)}</tbody></table></div>
+      <div className="table-card" style={{ border: "1px solid #dfe6ef", borderRadius: 14, maxHeight: 420, overflow: "auto" }}><table className="data-table"><thead><tr><th>일자</th><th>시간</th><th>반</th><th>강의실</th><th>강사</th><th>대상</th></tr></thead><tbody>{rows.slice(0, 15).map((r, i) => <tr key={i}><td>{r.date || "앞 행과 동일"}</td><td>{r.start}–{r.end}</td><td>{r.classCode}반</td><td>{r.room}</td><td>{r.instructors.join(", ")}</td><td>{r.target ? `${r.target}명` : "미입력"}</td></tr>)}</tbody></table></div>
       {rows.length > 15 && <div style={{ fontSize: 11, color: "#65758a", marginTop: 8 }}>외 {rows.length - 15}개 반</div>}
       <button className="btn btn-primary" disabled={uploading || complete} onClick={upload} style={{ marginTop: 18, width: "100%", opacity: uploading || complete ? 0.6 : 1 }}>{uploading ? "가져오는 중…" : complete ? "가져오기 완료" : "2026년 여름학기로 가져오기"}</button>
     </>}

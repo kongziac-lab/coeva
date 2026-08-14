@@ -47,6 +47,11 @@ function koreaDateTime(dateValue: unknown, timeValue: unknown, defaultYear?: num
   return new Date(`${date.year}-${pad(date.month)}-${pad(date.day)}T${pad(time.hour)}:${pad(time.minute)}:00+09:00`);
 }
 
+function eligibleCountFromValue(value: unknown) {
+  const match = String(value ?? "").replace(/,/g, "").match(/\d+/);
+  return match ? Math.max(0, Number(match[0])) : 0;
+}
+
 function failure(error: unknown) {
   if (error instanceof ScheduleValidationError) {
     return NextResponse.json({ error: "invalid_schedule", message: error.message }, { status: 400 });
@@ -91,10 +96,11 @@ export async function POST(request: Request) {
       const scheduledAt = koreaDateTime(carriedDate, row[1], defaultYear);
       const scheduledEndAt = koreaDateTime(carriedDate, row[2], defaultYear);
       const instructorNames = row.slice(5, 9).filter(Boolean).map((name) => String(name).trim()).filter(Boolean);
+      const eligibleCount = eligibleCountFromValue(row[9]);
       if (!scheduledAt || !scheduledEndAt || scheduledEndAt <= scheduledAt || !String(row[4] ?? "").trim() || instructorNames.length < 1) {
         throw new ScheduleValidationError(`${index + 2}행의 일자, 시간, 강의실 또는 강사를 확인해 주세요.`);
       }
-      return { classCode: String(row[3]).trim(), room: String(row[4]).trim(), scheduledAt, scheduledEndAt, instructorNames };
+      return { classCode: String(row[3]).trim(), room: String(row[4]).trim(), scheduledAt, scheduledEndAt, instructorNames, eligibleCount };
     });
 
     const db = getDb();
@@ -117,9 +123,10 @@ export async function POST(request: Request) {
           room: row.room,
           scheduledAt: row.scheduledAt,
           scheduledEndAt: row.scheduledEndAt,
+          eligibleCount: row.eligibleCount,
         }).onConflictDoUpdate({
           target: [classes.termId, classes.code],
-          set: { room: row.room, scheduledAt: row.scheduledAt, scheduledEndAt: row.scheduledEndAt },
+          set: { room: row.room, scheduledAt: row.scheduledAt, scheduledEndAt: row.scheduledEndAt, eligibleCount: row.eligibleCount },
         }).returning();
 
         for (const [position, name] of row.instructorNames.entries()) {
