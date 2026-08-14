@@ -18,8 +18,8 @@ export default async function InstructorsPage() {
   } catch { /* The panel presents an empty state while the database is unavailable. */ }
 
   return <AdminShell active="/admin/instructors" title="강사 사진 관리"><div className="content">
-    <div className="page-head"><div><h1>강사 사진 관리</h1><p>설문에서 학생이 강사를 정확히 확인할 수 있도록 얼굴이 잘 보이는 사진을 등록하세요.</p></div></div>
-    <div className="photo-guidance">JPEG, PNG, WebP · 파일당 최대 1.5MB · 정면 상반신 사진 권장</div>
+    <div className="page-head"><div><h1>강사 사진 관리</h1><p>학생이 설문에서 강사를 정확히 확인할 수 있도록 사진을 등록하세요.</p></div></div>
+    <div className="photo-guidance">JPEG, PNG, WebP · 파일당 최대 1.5MB · 일괄등록은 파일명을 강사명 또는 강사번호로 저장하세요.</div>
     <InstructorPhotoPanel initialInstructors={instructorList} />
   </div></AdminShell>;
 }
