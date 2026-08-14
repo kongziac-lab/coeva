@@ -87,7 +87,9 @@ export async function POST(request: Request) {
     const raw = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: null });
     const titleYear = String(raw[0]?.[0] ?? "").match(/(20\d{2})\s*학년도/);
     const defaultYear = titleYear ? Number(titleYear[1]) : new Date().getFullYear();
-    const sourceRows = raw.slice(1).filter((row) => Array.isArray(row) && row[3]);
+    const headerRowIndex = raw.findIndex((row, index) => index > 0 && Array.isArray(row) && String(row[0] ?? "").trim() === "일자");
+    const dataStartIndex = headerRowIndex >= 0 ? headerRowIndex + 1 : 1;
+    const sourceRows = raw.slice(dataStartIndex).filter((row) => Array.isArray(row) && row[3]);
     if (!sourceRows.length) return NextResponse.json({ error: "empty_file", message: "가져올 반 일정이 없습니다." }, { status: 400 });
 
     let carriedDate: unknown = null;
@@ -98,7 +100,7 @@ export async function POST(request: Request) {
       const instructorNames = row.slice(5, 9).filter(Boolean).map((name) => String(name).trim()).filter(Boolean);
       const eligibleCount = eligibleCountFromValue(row[9]);
       if (!scheduledAt || !scheduledEndAt || scheduledEndAt <= scheduledAt || !String(row[4] ?? "").trim() || instructorNames.length < 1) {
-        throw new ScheduleValidationError(`${index + 2}행의 일자, 시간, 강의실 또는 강사를 확인해 주세요.`);
+        throw new ScheduleValidationError(`${index + dataStartIndex + 1}행의 일자, 시간, 강의실 또는 강사를 확인해 주세요.`);
       }
       return { classCode: String(row[3]).trim(), room: String(row[4]).trim(), scheduledAt, scheduledEndAt, instructorNames, eligibleCount };
     });

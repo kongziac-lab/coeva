@@ -19,7 +19,9 @@ export function ImportPanel() {
     try {
       const book = XLSX.read(await selected.arrayBuffer(), { type: "array", cellDates: false });
       const raw = XLSX.utils.sheet_to_json<unknown[]>(book.Sheets[book.SheetNames[0]], { header: 1, defval: null });
-      const parsed = raw.slice(1).filter((r) => Array.isArray(r) && r[3]).map((r: unknown[]) => ({
+      const headerRowIndex = raw.findIndex((r, index) => index > 0 && Array.isArray(r) && String(r[0] ?? "").trim() === "일자");
+      const dataStartIndex = headerRowIndex >= 0 ? headerRowIndex + 1 : 1;
+      const parsed = raw.slice(dataStartIndex).filter((r) => Array.isArray(r) && r[3]).map((r: unknown[]) => ({
         date: String(r[0] ?? ""), start: formatTime(r[1]), end: formatTime(r[2]), classCode: String(r[3]), room: String(r[4]),
         instructors: r.slice(5, 9).filter(Boolean).map(String), target: Number(String(r[9] ?? "").replace(/[^0-9]/g, "")) || 0,
       }));
