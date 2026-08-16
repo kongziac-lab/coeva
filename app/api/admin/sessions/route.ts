@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
-import { evaluationSessions, participation, questionnaireVersions } from "@/db/schema";
+import { classes, evaluationSessions, participation, questionnaireVersions } from "@/db/schema";
 import { getDb } from "@/lib/db";
 import { createPublicToken, hashToken } from "@/lib/security";
 import { getAdminSession } from "@/lib/auth";
+import { recalculateTermResults } from "@/lib/results";
 
 const input = z.object({ classId: z.uuid(), targetCount: z.number().int().positive(), durationMinutes: z.number().int().min(1).max(30).optional() });
 
@@ -48,7 +49,14 @@ export async function DELETE(request: Request) {
   const id = new URL(request.url).searchParams.get("id");
   if (!id) return NextResponse.json({ error: "id_required" }, { status: 400 });
   try {
-    await getDb().update(evaluationSessions).set({ status: "CLOSED", closedAt: new Date() }).where(and(eq(evaluationSessions.id, id), eq(evaluationSessions.status, "ACTIVE")));
+    const db = getDb();
+    const [closed] = await db.update(evaluationSessions).set({ status: "CLOSED", closedAt: new Date() }).where(and(eq(evaluationSessions.id, id), eq(evaluationSessions.status, "ACTIVE"))).returning({ classId: evaluationSessions.classId });
+    if (closed?.classId) {
+      const [row] = await db.select({ termId: classes.termId }).from(classes).where(eq(classes.id, closed.classId)).limit(1);
+      if (row?.termId) {
+        try { await recalculateTermResults(row.termId); } catch { /* Result aggregation failure should not break session closure. */ }
+      }
+    }
     return NextResponse.json({ ok: true });
   } catch { return NextResponse.json({ error: "service_unavailable" }, { status: 503 }); }
 }

@@ -9,11 +9,11 @@ const roleSchema = z.enum(["SYSTEM_ADMIN", "SURVEY_OPERATOR", "RESULTS_ADMIN"]);
 const createSchema = z.object({ email: z.email(), name: z.string().trim().min(1).max(80), role: roleSchema });
 const updateSchema = z.object({ name: z.string().trim().min(1).max(80).optional(), role: roleSchema.optional(), active: z.boolean().optional() });
 
-function publicAdmin(admin: typeof admins.$inferSelect) { return { id: admin.id, email: admin.email, name: admin.name, role: admin.role, active: admin.active, googleSubject: Boolean(admin.googleSubject), lastLoginAt: admin.lastLoginAt, createdAt: admin.createdAt }; }
+function publicAdmin(admin: typeof admins.$inferSelect) { return { id: admin.id, email: admin.email, name: admin.name, role: admin.role, active: admin.active, totpEnabled: admin.totpEnabled, googleSubject: Boolean(admin.googleSubject), lastLoginAt: admin.lastLoginAt, createdAt: admin.createdAt }; }
 
 export async function GET() {
-  if (!await requireSystemAdmin()) return NextResponse.json({ error: "forbidden" }, { status: 403 });
-  try { const rows = await getDb().select().from(admins).orderBy(desc(admins.createdAt)); return NextResponse.json({ admins: rows.map(publicAdmin) }); } catch { return NextResponse.json({ error: "database_unavailable" }, { status: 503 }); }
+  const actor = await requireSystemAdmin(); if (!actor) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  try { const rows = await getDb().select().from(admins).orderBy(desc(admins.createdAt)); return NextResponse.json({ admins: rows.map(publicAdmin), me: { email: actor.email } }); } catch { return NextResponse.json({ error: "database_unavailable" }, { status: 503 }); }
 }
 
 export async function POST(request: Request) {

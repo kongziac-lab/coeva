@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { eq } from "drizzle-orm";
 import { admins } from "@/db/schema";
 import { getDb } from "@/lib/db";
-import { createAdminToken } from "@/lib/auth";
+import { createAdminToken, createPendingMfaToken } from "@/lib/auth";
 import { ensureGoogleAdminSchema } from "@/lib/google-admin-schema";
 
 type GoogleUser = { sub: string; email: string; email_verified?: boolean; name?: string; hd?: string };
@@ -69,7 +69,17 @@ export async function GET(request: Request) {
 
     if (!admin || !admin.active) return fail("관리자 목록에 등록되지 않은 계정입니다. 시스템 관리자에게 등록을 요청하세요.");
     await db.update(admins).set({ googleSubject: user.sub, lastLoginAt: new Date(), name: admin.name || user.name || user.email }).where(eq(admins.id, admin.id));
-    const token = await createAdminToken({ email: admin.email, name: admin.name || user.name || admin.email, role: admin.role });
+    const session = { email: admin.email, name: admin.name || user.name || admin.email, role: admin.role };
+
+    if (admin.totpEnabled) {
+      const token = await createPendingMfaToken(session);
+      const response = NextResponse.redirect(`${appUrl}/login?mfa=1`);
+      response.cookies.set("coeva_mfa_pending", token, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", maxAge: 60 * 5, path: "/" });
+      response.cookies.set("google_oauth_state", "", { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", maxAge: 0, path: "/" });
+      return response;
+    }
+
+    const token = await createAdminToken(session);
     const response = NextResponse.redirect(`${appUrl}/admin`);
     response.cookies.set("coeva_admin", token, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", maxAge: 60 * 60 * 8, path: "/" });
     response.cookies.set("google_oauth_state", "", { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", maxAge: 0, path: "/" });

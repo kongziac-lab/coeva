@@ -4,7 +4,7 @@ import { AdminShell } from "@/components/admin-shell";
 import { instructors, termResults, terms } from "@/db/schema";
 import { getDb } from "@/lib/db";
 
-const statusName = { NORMAL:"정상", WARNING:"1차 경고", RESTRICTION:"강의 제한", INSUFFICIENT:"판정 보류" } as const;
+const statusName = { NORMAL:"정상", WARNING:"1차 경고", RESTRICTION:"강의 제한", INSUFFICIENT:"판정보류" } as const;
 export default async function ResultsPage(){
   let rows: Array<{name:string;rawScore:number|null;responseCount:number;eligibleOpportunities:number;participationRate:number;status:keyof typeof statusName;reason:string;termName:string}> = [];
   try { rows = await getDb().select({name:instructors.name,rawScore:termResults.rawScore,responseCount:termResults.responseCount,eligibleOpportunities:termResults.eligibleOpportunities,participationRate:termResults.participationRate,status:termResults.status,reason:termResults.reason,termName:terms.name}).from(termResults).innerJoin(instructors,eq(termResults.instructorId,instructors.id)).innerJoin(terms,eq(termResults.termId,terms.id)).orderBy(desc(termResults.calculatedAt)); } catch { /* Show empty state. */ }

@@ -6,6 +6,12 @@ describe("강의평가 규정 엔진", () => {
     expect(evaluatePolicy({ rawScore: 4.5, responseCount: 4999, eligibleOpportunities: 10000 }).status).toBe("INSUFFICIENT");
     expect(evaluatePolicy({ rawScore: 4.5, responseCount: 5, eligibleOpportunities: 10 }).status).toBe("NORMAL");
   });
+  it("참여율 50% 미만이면 점수가 높아도 판정보류한다", () => {
+    const decision = evaluatePolicy({ rawScore: 4.9, responseCount: 4, eligibleOpportunities: 10 });
+    expect(decision.status).toBe("INSUFFICIENT");
+    expect(decision.participationRate).toBe(0.4);
+    expect(decision.reason).toContain("50%");
+  });
   it.each([[3.67, "RESTRICTION"], [3.671, "WARNING"], [3.999, "WARNING"], [4, "NORMAL"]] as const)("점수 %s 경계를 판정한다", (score, status) => {
     expect(evaluatePolicy({ rawScore: score, responseCount: 10, eligibleOpportunities: 10 }).status).toBe(status);
   });

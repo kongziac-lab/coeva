@@ -8,6 +8,9 @@ export const policyStatus = pgEnum("policy_status", ["NORMAL", "WARNING", "RESTR
 export const admins = pgTable("admins", {
   id: uuid("id").defaultRandom().primaryKey(), email: text("email").notNull(), name: text("name").notNull(),
   passwordHash: text("password_hash"), googleSubject: text("google_subject"), role: adminRole("role").notNull(), active: boolean("active").default(true).notNull(),
+  totpEnabled: boolean("totp_enabled").default(false).notNull(),
+  totpSecret: text("totp_secret"),
+  totpVerifiedAt: timestamp("totp_verified_at", { withTimezone: true }),
   lastLoginAt: timestamp("last_login_at", { withTimezone: true }), createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [uniqueIndex("admins_email_idx").on(t.email), uniqueIndex("admins_google_subject_idx").on(t.googleSubject)]);
 
