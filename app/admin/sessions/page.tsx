@@ -23,5 +23,5 @@ export default async function SessionsPage() {
       return { id:row.id, room:row.room, classCode:String(row.code), time:`${formatter.format(row.scheduledAt)}–${formatter.format(row.scheduledEndAt)}`, instructors:assignmentRows.filter(item=>item.classId===row.id).map(item=>item.name), target:active?.target??row.eligibleCount, submitted:0, status:active?"ACTIVE":"READY", sessionId:active?.id??null };
     });
   } catch { /* Show empty state. */ }
-  return <AdminShell active="/admin/sessions" title="현장 평가"><div className="content"><div className="page-head"><div><h1>현장 평가 운영</h1><p>조사할 반을 선택하고 대상 인원을 입력한 뒤 임시 QR을 생성하세요.</p></div></div>{sessionClasses.length>0?<SessionOperatorPanel classes={sessionClasses}/>:<section className="card" style={{padding:36,textAlign:"center",color:'#65758a'}}>등록된 평가 일정이 없습니다. 시스템 관리자가 먼저 엑셀 일정을 가져와야 합니다.</section>}</div></AdminShell>;
+  return <AdminShell active="/admin/sessions" title="현장 평가"><div className="content"><div className="page-head"><div><h1>현장 평가 운영</h1><p>조사할 반을 선택하고 대상 인원을 입력한 뒤 임시 QR을 생성하세요.</p></div></div>{sessionClasses.length>0?<SessionOperatorPanel classes={sessionClasses}/>:<section className="card" style={{padding:36,textAlign:"center",color:'#5b6b84'}}>등록된 평가 일정이 없습니다. 시스템 관리자가 먼저 엑셀 일정을 가져와야 합니다.</section>}</div></AdminShell>;
 }
