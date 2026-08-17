@@ -134,6 +134,12 @@ button:focus-visible, a:focus-visible { outline: 2px solid rgba(13, 49, 104, .55
 .sidebar-user div { font-size: 11px; color: #93aac8; }
 
 /* ── Field sessions ── */
+.session-selector, .qr-session-card, .session-main-grid > .card:last-child, .desktop-schedule { position: relative; overflow: hidden; }
+.session-selector::before, .qr-session-card::before, .session-main-grid > .card:last-child::before, .desktop-schedule::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px; border-radius: var(--radius) var(--radius) 0 0; }
+.session-selector::before { background: linear-gradient(90deg, #0d3168, #3a7bd5); }
+.qr-session-card::before { background: linear-gradient(90deg, #a6192e, #e85d6f); }
+.session-main-grid > .card:last-child::before { background: linear-gradient(90deg, #c9a24b, #e8c86a); }
+.desktop-schedule::before { background: linear-gradient(90deg, #1f7d5c, #34c38f); }
 .session-selector { padding: 20px 24px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
 .live-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line-soft); }
 .live-stats div { display: grid; gap: 4px; padding: 10px 8px; border-radius: 10px; background: #f5f8fc; text-align: center; }
