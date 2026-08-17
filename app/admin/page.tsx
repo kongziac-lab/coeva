@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { Activity, BookOpen, CheckCircle2, QrCode, Users } from "lucide-react";
-import { count, eq } from "drizzle-orm";
+import { count, countDistinct, eq } from "drizzle-orm";
 import { AdminShell } from "@/components/admin-shell";
-import { anonymousResponses, classes, evaluationSessions, instructors } from "@/db/schema";
+import { anonymousResponses, classes, evaluationSessions, teachingAssignments } from "@/db/schema";
 import { getDb } from "@/lib/db";
 
 export default async function AdminDashboard() {
@@ -11,7 +11,7 @@ export default async function AdminDashboard() {
     const db = getDb();
     const [[classCount], [instructorCount], [completedCount], [responseCount]] = await Promise.all([
       db.select({ value: count() }).from(classes),
-      db.select({ value: count() }).from(instructors),
+      db.select({ value: countDistinct(teachingAssignments.instructorId) }).from(teachingAssignments),
       db.select({ value: count() }).from(evaluationSessions).where(eq(evaluationSessions.status, "CLOSED")),
       db.select({ value: count() }).from(anonymousResponses).where(eq(anonymousResponses.valid, true)),
     ]);
