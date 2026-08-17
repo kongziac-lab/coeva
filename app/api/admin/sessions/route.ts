@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, or } from "drizzle-orm";
 import { z } from "zod";
 import { classes, evaluationSessions, participation, questionnaireVersions } from "@/db/schema";
 import { getDb } from "@/lib/db";
@@ -28,7 +28,37 @@ export async function POST(request: Request) {
 export async function GET(request: Request) {
   const admin = await getAdminSession();
   if (!admin) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const id = new URL(request.url).searchParams.get("id");
+  const url = new URL(request.url);
+  if (url.searchParams.get("all") === "1") {
+    try {
+      const db = getDb();
+      const cutoff = new Date(Date.now() - 24 * 3600 * 1000);
+      const sessions = await db.select({ id: evaluationSessions.id, classId: evaluationSessions.classId, targetCount: evaluationSessions.targetCount, status: evaluationSessions.status })
+        .from(evaluationSessions)
+        .where(or(eq(evaluationSessions.status, "ACTIVE"), gte(evaluationSessions.opensAt, cutoff)))
+        .orderBy(desc(evaluationSessions.opensAt))
+        .limit(100);
+      const ids = sessions.map((session) => session.id);
+      const rows = ids.length ? await db.select({ sessionId: participation.sessionId, status: participation.status, lastSeenAt: participation.lastSeenAt }).from(participation).where(inArray(participation.sessionId, ids)) : [];
+      const now = Date.now();
+      const bySession = new Map<string, { connected: number; completed: number }>();
+      for (const row of rows) {
+        const entry = bySession.get(row.sessionId) ?? { connected: 0, completed: 0 };
+        if (row.status === "COMPLETED") entry.completed += 1;
+        if (row.status === "IN_PROGRESS" && row.lastSeenAt && now - row.lastSeenAt.getTime() <= 45_000) entry.connected += 1;
+        bySession.set(row.sessionId, entry);
+      }
+      const stats: Record<string, { targetCount: number; connected: number; completed: number; remaining: number; status: string }> = {};
+      for (const session of sessions) {
+        const existing = stats[session.classId];
+        if (existing?.status === "ACTIVE" && session.status !== "ACTIVE") continue;
+        const counts = bySession.get(session.id) ?? { connected: 0, completed: 0 };
+        stats[session.classId] = { targetCount: session.targetCount, connected: counts.connected, completed: counts.completed, remaining: Math.max(0, session.targetCount - counts.completed), status: session.status };
+      }
+      return NextResponse.json({ stats }, { headers: { "cache-control": "no-store" } });
+    } catch { return NextResponse.json({ error: "service_unavailable" }, { status: 503 }); }
+  }
+  const id = url.searchParams.get("id");
   if (!id) return NextResponse.json({ error: "id_required" }, { status: 400 });
   try {
     const db = getDb();

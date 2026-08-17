@@ -118,6 +118,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid rgba(13, 49, 104, .55
 .status.RESTRICTION { color: var(--crimson); background: var(--red-soft); }
 .status.INSUFFICIENT { color: var(--muted); background: #eef1f5; }
 .spark { color: var(--navy); letter-spacing: -2px; font-size: 17px; }
+.live-num { font-family: var(--mono); font-weight: 600; color: var(--navy-deep); letter-spacing: -.01em; }
 .mobile-header { display: none; }
 .mobile-brand-mark { width: 32px; height: 32px; border-radius: 10px; font-size: 16px; }
 .sidebar-user { min-width: 0; flex: 1; }

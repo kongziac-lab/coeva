@@ -4,6 +4,7 @@ import { z } from "zod";
 import { anonymousResponses, classes, evaluationSessions, participation, questionnaireVersions, teachingAssignments, instructors } from "@/db/schema";
 import { getDb } from "@/lib/db";
 import { hashSubject, hashToken } from "@/lib/security";
+import { getSurveyPayload } from "@/lib/survey-session";
 
 const answerSet = z.object({ assignmentId: z.uuid(), answers: z.array(z.number().int().min(1).max(5)).length(7), comment: z.string().max(1000).optional() });
 const submission = z.object({ deviceId: z.string().min(16).max(128), language: z.string().max(12), responses: z.array(answerSet).min(2).max(4) });
@@ -17,12 +18,10 @@ async function findSession(token: string) {
 }
 
 export async function GET(_: NextRequest, { params }: { params: Promise<{ token: string }> }) {
-  try {
-    const { token } = await params; const session = await findSession(token);
-    if (!session || session.status !== "ACTIVE") return NextResponse.json({ error:"session_unavailable" },{status:410});
-    const db=getDb(); const assigned=await db.select({assignmentId:teachingAssignments.id,instructorId:instructors.id,name:instructors.name,hasPhoto:sql<boolean>`${instructors.photoData} is not null`}).from(teachingAssignments).innerJoin(instructors,eq(teachingAssignments.instructorId,instructors.id)).where(eq(teachingAssignments.classId,session.classId)).orderBy(teachingAssignments.position);
-    return NextResponse.json({classCode:session.classCode,room:session.room,instructors:assigned.map(({assignmentId,instructorId,name,hasPhoto})=>({assignmentId,name,photoUrl:hasPhoto?`/api/instructors/${instructorId}/photo`:null})),questions:session.questions},{headers:{"cache-control":"no-store"}});
-  } catch { return NextResponse.json({error:"service_unavailable"},{status:503}); }
+  const { token } = await params;
+  const payload = await getSurveyPayload(token);
+  if (!payload) return NextResponse.json({ error: "session_unavailable" }, { status: 410 });
+  return NextResponse.json(payload, { headers: { "cache-control": "no-store" } });
 }
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ token: string }> }) {
