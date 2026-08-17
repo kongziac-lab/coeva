@@ -326,7 +326,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid rgba(13, 49, 104, .55
 .login-card { width: min(420px, 100%); background: #fff; border-radius: 22px; padding: 34px; box-shadow: var(--shadow-lg); }
 .login-card .brand { border-bottom: 0; padding-bottom: 0; margin-bottom: 0; }
 .login-card h1 { margin: 24px 0 6px; font-size: 25px; font-weight: 900; color: var(--navy-deep); }
-.login-card p { color: var(--muted); margin: 0 0 26px; }
+.login-card p { color: var(--muted); margin: 0 0 26px; font-size: 13px; letter-spacing: .01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .field { display: grid; gap: 7px; margin: 14px 0; }
 .field label { font-size: 12px; font-weight: 700; color: var(--slate); }
 .field input { border: 1px solid var(--line); border-radius: 11px; padding: 12px; background: #fff; transition: border-color .15s ease, box-shadow .15s ease; }
