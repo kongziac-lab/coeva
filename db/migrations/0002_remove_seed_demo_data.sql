@@ -22,8 +22,6 @@ BEGIN
     DELETE FROM "classes" WHERE id = demo_class_id;
   END IF;
 
-  DELETE FROM "instructors" i
-  WHERE i."name" IN ('정재영', '안혜진')
-    AND NOT EXISTS (SELECT 1 FROM "teaching_assignments" ta WHERE ta."instructor_id" = i.id)
-    AND NOT EXISTS (SELECT 1 FROM "term_results" tr WHERE tr."instructor_id" = i.id);
+  -- (정리) 예전 데모 강사 2명을 이름으로 지우던 구문은 실명이 소스에 남지 않도록 뺐다.
+  -- 현재 시드는 강사를 만들지 않으므로 새 DB에는 지울 데모 강사가 없고, 기존 DB에는 이미 적용됐다.
 END $$;

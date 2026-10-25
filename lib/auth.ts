@@ -4,9 +4,10 @@ import { eq } from "drizzle-orm";
 import { generateSecret, generateURI, verifySync } from "otplib";
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from "node:crypto";
 import { admins } from "@/db/schema";
+import { requireSecret } from "@/lib/security";
 import { getDb } from "@/lib/db";
 
-const secret = () => new TextEncoder().encode(process.env.SESSION_SECRET ?? "development-only-secret-change-before-production");
+const secret = () => new TextEncoder().encode(requireSecret(process.env.SESSION_SECRET, "SESSION_SECRET"));
 
 export type AdminSession = { email: string; name: string; role: "SYSTEM_ADMIN" | "SURVEY_OPERATOR" | "RESULTS_ADMIN" };
 export type PendingMfaSession = AdminSession & { pendingMfa: true };
@@ -31,7 +32,11 @@ export async function getAdminSession(): Promise<AdminSession | null> {
       const rows = await getDb().select({ email: admins.email, name: admins.name, role: admins.role, active: admins.active }).from(admins).where(eq(admins.email, session.email)).limit(1);
       if (rows.length && !rows[0].active) return null;
       if (rows.length) return { email: rows[0].email, name: rows[0].name, role: rows[0].role };
-    } catch { /* Local demo mode has no database. */ }
+    } catch {
+      // 운영 환경에서는 관리자 계정 상태(비활성 여부)를 확인할 수 없으면 세션을 인정하지 않는다.
+      if (process.env.NODE_ENV === "production") return null;
+      /* Local demo mode has no database. */
+    }
     return session;
   } catch { return null; }
 }
@@ -61,7 +66,7 @@ export function buildTotpUri(email: string, secret: string, issuer: string): str
 }
 
 function getTotpEncryptionKey(): Buffer {
-  const raw = process.env.TOTP_ENCRYPTION_KEY ?? process.env.SESSION_SECRET ?? "development-only-secret-change-before-production";
+  const raw = requireSecret(process.env.TOTP_ENCRYPTION_KEY ?? process.env.SESSION_SECRET, "TOTP_ENCRYPTION_KEY 또는 SESSION_SECRET");
   return scryptSync(raw, "coeva-totp-salt", 32);
 }
 
