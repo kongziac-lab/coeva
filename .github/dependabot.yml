@@ -1,0 +1,14 @@
+# 의존성 보안 업데이트를 매주 자동으로 PR로 올린다(보안 패치 누락 방지).
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "07:00"
+      timezone: "Asia/Seoul"
+    open-pull-requests-limit: 5
+    groups:
+      security-and-patches:
+        update-types: ["patch", "minor"]
