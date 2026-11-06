@@ -21,6 +21,7 @@ export type SessionClass = {
   sessionId: string | null;
   url: string | null;
   expiresAt: string | null;
+  graceUntil: string | null;
   reopenable: boolean;
 };
 
@@ -60,6 +61,7 @@ export async function loadSessionClasses(): Promise<{ termName: string | null; c
         sessionId: snapshot?.sessionId ?? null,
         url: snapshot?.url ?? null,
         expiresAt: snapshot?.expiresAt ?? null,
+        graceUntil: snapshot?.graceUntil ?? null,
         reopenable: snapshot?.reopenable ?? false,
       };
     }),

@@ -7,6 +7,7 @@ import { ArrowLeft, Download, Printer } from "lucide-react";
 import QRCode from "qrcode";
 import { renderQrSlide } from "@/lib/qr-slide";
 import { createZip, safeFileName } from "@/lib/zip";
+import { roomLabel } from "@/lib/room";
 
 type Card = { classId: string; classCode: string; room: string; instructors: string[]; url: string; qr?: string };
 type Layout = "single" | "quad";
@@ -29,7 +30,7 @@ export function QrCardSheet() {
       const files = [];
       for (const [index, card] of cards.entries()) {
         setSaving(`${index + 1} / ${cards.length}`);
-        files.push({ name: safeFileName(`${card.classCode}반_${card.room}호.png`), data: await renderQrSlide(card, termName, fontFamily) });
+        files.push({ name: safeFileName(`${card.classCode}반_${roomLabel(card.room)}.png`), data: await renderQrSlide(card, termName, fontFamily) });
       }
       const zip = createZip(files);
       const url = URL.createObjectURL(new Blob([zip.buffer as ArrayBuffer], { type: "application/zip" }));
@@ -78,7 +79,7 @@ export function QrCardSheet() {
     <div className="qr-cards-grid">
       {cards.map((card) => <article key={card.classId} className="qr-card">
         <div className="qr-card-head"><span className="qr-card-brand">K-강의평가</span><span>{termName}</span></div>
-        <h2>{card.classCode}반 <small>{card.room}호</small></h2>
+        <h2>{card.classCode}반 <small>{roomLabel(card.room)}</small></h2>
         {card.qr && <Image src={card.qr} width={640} height={640} unoptimized alt={`${card.classCode}반 강의평가 QR 코드`} className="qr-card-code" />}
         <p className="qr-card-cta">휴대폰 카메라로 QR을 스캔하세요<br /><span>Scan the QR code with your phone camera</span></p>
         {card.instructors.length > 0 && <p className="qr-card-instructors">{card.instructors.join(" · ")}</p>}

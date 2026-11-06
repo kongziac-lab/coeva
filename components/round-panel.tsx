@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Play, QrCode, RefreshCw, Square, Timer, X } from "lucide-react";
 import QRCode from "qrcode";
 import type { SessionClass, SessionPhase } from "@/lib/session-classes";
+import { roomLabel, roomNumber } from "@/lib/room";
 
 type Snapshot = {
   classId: string;
@@ -17,6 +18,7 @@ type Snapshot = {
   remaining: number;
   url: string | null;
   expiresAt: string | null;
+  graceUntil: string | null;
   reopenable: boolean;
 };
 type Sort = "room" | "class";
@@ -32,7 +34,7 @@ function formatRemaining(ms: number) {
 }
 
 function fromClass(item: SessionClass): Snapshot {
-  return { classId: item.id, sessionId: item.sessionId, phase: item.phase, targetCount: item.target, connected: item.connected, completed: item.submitted, remaining: item.remaining, url: item.url, expiresAt: item.expiresAt, reopenable: item.reopenable };
+  return { classId: item.id, sessionId: item.sessionId, phase: item.phase, targetCount: item.target, connected: item.connected, completed: item.submitted, remaining: item.remaining, url: item.url, expiresAt: item.expiresAt, graceUntil: item.graceUntil, reopenable: item.reopenable };
 }
 
 // 운영요원이 휴대폰으로 교실을 돌며 반마다 버튼 한 번으로 평가를 여는 화면.
@@ -68,7 +70,7 @@ export function RoundPanel({ classes, termName }: { classes: SessionClass[]; ter
   const rows = useMemo(() => {
     const list = classes.map((item) => ({ item, snapshot: snapshots[item.id] ?? fromClass(item) }));
     list.sort((a, b) => sort === "room"
-      ? collator.compare(a.item.room, b.item.room) || collator.compare(a.item.classCode, b.item.classCode)
+      ? collator.compare(roomNumber(a.item.room), roomNumber(b.item.room)) || collator.compare(a.item.classCode, b.item.classCode)
       : collator.compare(a.item.classCode, b.item.classCode));
     return filter === "ALL" ? list : list.filter((row) => row.snapshot.phase === filter);
   }, [classes, snapshots, sort, filter]);
@@ -80,7 +82,7 @@ export function RoundPanel({ classes, termName }: { classes: SessionClass[]; ter
 
   async function act(item: SessionClass, action: "open" | "reopen" | "stop") {
     const snapshot = snapshots[item.id];
-    if (action === "stop" && !confirm(`${item.classCode}반 평가를 지금 마감할까요?`)) return;
+    if (action === "stop" && !confirm(`${item.classCode}반 평가를 지금 마감할까요?\n작성 중인 학생도 더 이상 제출할 수 없습니다.`)) return;
     setBusyId(item.id); setError("");
     try {
       let response: Response;
@@ -96,8 +98,8 @@ export function RoundPanel({ classes, termName }: { classes: SessionClass[]; ter
       }
       setSnapshots((previous) => {
         const current = previous[item.id] ?? fromClass(item);
-        if (action === "stop") return { ...previous, [item.id]: { ...current, phase: "CLOSED", connected: 0, url: null, expiresAt: null, reopenable: true } };
-        return { ...previous, [item.id]: { ...current, sessionId: result.id ?? current.sessionId, phase: "ACTIVE", url: result.url ?? current.url, expiresAt: result.expiresAt ?? null, reopenable: false } };
+        if (action === "stop") return { ...previous, [item.id]: { ...current, phase: "CLOSED", connected: 0, url: null, expiresAt: null, graceUntil: null, reopenable: true } };
+        return { ...previous, [item.id]: { ...current, sessionId: result.id ?? current.sessionId, phase: "ACTIVE", url: result.url ?? current.url, expiresAt: result.expiresAt ?? null, graceUntil: null, reopenable: false } };
       });
       setNow(Date.now());
     } catch (actionError) {
@@ -124,14 +126,16 @@ export function RoundPanel({ classes, termName }: { classes: SessionClass[]; ter
     <ul className="round-list">
       {rows.map(({ item, snapshot }) => {
         const remainingMs = snapshot.phase === "ACTIVE" && snapshot.expiresAt ? new Date(snapshot.expiresAt).getTime() - now : null;
+        const graceMs = snapshot.phase === "CLOSED" && snapshot.graceUntil ? new Date(snapshot.graceUntil).getTime() - now : null;
         const busy = busyId === item.id;
         return <li key={item.id} className={`round-card phase-${snapshot.phase}`}>
           <div className="round-card-main">
-            <div className="round-room">{item.room}<small>호</small></div>
+            <div className="round-room">{roomNumber(item.room)}<small>호</small></div>
             <div className="round-info">
               <strong>{item.classCode}반 <span className={`status ${snapshot.phase === "ACTIVE" ? "NORMAL" : "INSUFFICIENT"}`}>{phaseLabel[snapshot.phase]}</span></strong>
               <span>{item.instructors.join(" · ") || "배정 강사 없음"}</span>
               <span className="round-stats">제출 <b>{snapshot.completed}</b> / {snapshot.targetCount}명{snapshot.phase === "ACTIVE" ? ` · 접속 ${snapshot.connected}명` : ""}</span>
+              {graceMs !== null && graceMs > 0 && <span className="round-grace">마감 · 작성 중 {snapshot.connected}명 제출 가능 {formatRemaining(graceMs)}</span>}
             </div>
             {remainingMs !== null && <div className={`round-timer ${remainingMs <= 60_000 ? "urgent" : ""}`}><Timer size={13} />{remainingMs > 0 ? formatRemaining(remainingMs) : "마감 중"}</div>}
           </div>
@@ -146,6 +150,6 @@ export function RoundPanel({ classes, termName }: { classes: SessionClass[]; ter
       })}
     </ul>
     {rows.length === 0 && <p className="round-empty">해당 상태의 반이 없습니다.</p>}
-    {qrView && qrClass && <div className="qr-modal" role="dialog" aria-modal="true" onClick={() => setQrView(null)}><div className="qr-modal-card" onClick={(event) => event.stopPropagation()}><button className="qr-modal-close" type="button" onClick={() => setQrView(null)} aria-label="QR 닫기"><X size={19} /></button><Image src={qrView.qr} width={640} height={640} unoptimized alt={`${qrClass.classCode}반 강의평가 QR 코드`} /><strong>{qrClass.classCode}반 · {qrClass.room}호</strong></div></div>}
+    {qrView && qrClass && <div className="qr-modal" role="dialog" aria-modal="true" onClick={() => setQrView(null)}><div className="qr-modal-card" onClick={(event) => event.stopPropagation()}><button className="qr-modal-close" type="button" onClick={() => setQrView(null)} aria-label="QR 닫기"><X size={19} /></button><Image src={qrView.qr} width={640} height={640} unoptimized alt={`${qrClass.classCode}반 강의평가 QR 코드`} /><strong>{qrClass.classCode}반 · {roomLabel(qrClass.room)}</strong></div></div>}
   </div>;
 }

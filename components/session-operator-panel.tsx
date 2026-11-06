@@ -6,6 +6,7 @@ import { Clock3, ExternalLink, QrCode, Radio, RefreshCw, RotateCcw, Square, Time
 import QRCode from "qrcode";
 
 import type { SessionClass, SessionPhase } from "@/lib/session-classes";
+import { roomLabel } from "@/lib/room";
 
 export type { SessionClass };
 
@@ -22,6 +23,7 @@ type SessionSnapshot = {
   remaining: number;
   url: string | null;
   expiresAt: string | null;
+  graceUntil: string | null;
   reopenable: boolean;
   updatedAt?: string;
 };
@@ -38,6 +40,7 @@ function initialSnapshots(classes: SessionClass[]) {
     remaining: item.remaining,
     url: item.url,
     expiresAt: item.expiresAt,
+    graceUntil: item.graceUntil,
     reopenable: item.reopenable,
   }])) as Record<string, SessionSnapshot>;
 }
@@ -78,6 +81,8 @@ export function SessionOperatorPanel({ classes }: { classes: SessionClass[] }) {
   const isActive = selectedSnapshot?.status === "ACTIVE";
   const remainingMs = isActive && selectedSnapshot?.expiresAt ? new Date(selectedSnapshot.expiresAt).getTime() - now : null;
   const canReopen = !isActive && Boolean(selectedSnapshot?.reopenable && selectedSnapshot.sessionId);
+  const graceMs = !isActive && selectedSnapshot?.graceUntil ? new Date(selectedSnapshot.graceUntil).getTime() - now : null;
+  const inGrace = graceMs !== null && graceMs > 0;
 
   const displayClasses = useMemo(() => classes.map((item) => {
     const snapshot = snapshots[item.id];
@@ -94,10 +99,10 @@ export function SessionOperatorPanel({ classes }: { classes: SessionClass[] }) {
   const filteredClasses = statusFilter === "ALL" ? displayClasses : displayClasses.filter((item) => item.status === statusFilter);
 
   useEffect(() => {
-    if (!isActive) return;
+    if (!isActive && !selectedSnapshot?.graceUntil) return;
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
-  }, [isActive]);
+  }, [isActive, selectedSnapshot?.graceUntil]);
   const resetTarget = classes.find((item) => item.id === resetClassId) ?? null;
   const showTime = classes.some((item) => item.time);
   const withTime = (item: { time: string }) => item.time ? ` · ${item.time}` : "";
@@ -189,7 +194,7 @@ export function SessionOperatorPanel({ classes }: { classes: SessionClass[] }) {
       const session = { id: result.id, url: result.url, qr };
       localStorage.setItem(storageKey(selected.id), JSON.stringify(session));
       setActive((previous) => ({ ...previous, [selected.id]: session }));
-      setSnapshots((previous) => ({ ...previous, [selected.id]: { classId: selected.id, sessionId: result.id!, status: "ACTIVE", phase: "ACTIVE", targetCount: result.targetCount ?? targets[selected.id] ?? 1, connected: 0, completed: 0, remaining: result.targetCount ?? targets[selected.id] ?? 1, url: result.url!, expiresAt: result.expiresAt ?? null, reopenable: false } }));
+      setSnapshots((previous) => ({ ...previous, [selected.id]: { classId: selected.id, sessionId: result.id!, status: "ACTIVE", phase: "ACTIVE", targetCount: result.targetCount ?? targets[selected.id] ?? 1, connected: 0, completed: 0, remaining: result.targetCount ?? targets[selected.id] ?? 1, url: result.url!, expiresAt: result.expiresAt ?? null, graceUntil: null, reopenable: false } }));
       setNow(Date.now());
     } catch (startError) {
       setError(startError instanceof Error ? startError.message : "평가 세션을 시작하지 못했습니다.");
@@ -205,7 +210,7 @@ export function SessionOperatorPanel({ classes }: { classes: SessionClass[] }) {
       if (!response.ok) throw new Error();
       localStorage.removeItem(storageKey(selected.id));
       setActive((previous) => { const next = { ...previous }; delete next[selected.id]; return next; });
-      setSnapshots((previous) => ({ ...previous, [selected.id]: { ...previous[selected.id], sessionId: id, status: "READY", phase: "CLOSED", connected: 0, url: null, expiresAt: null, reopenable: true } }));
+      setSnapshots((previous) => ({ ...previous, [selected.id]: { ...previous[selected.id], sessionId: id, status: "READY", phase: "CLOSED", connected: 0, url: null, expiresAt: null, graceUntil: null, reopenable: true } }));
       setZoom(false);
     } catch { setError("평가 세션을 종료하지 못했습니다."); }
     finally { setBusy(false); }
@@ -228,7 +233,7 @@ export function SessionOperatorPanel({ classes }: { classes: SessionClass[] }) {
       const session = { id: result.id, url: result.url, qr };
       localStorage.setItem(storageKey(selected.id), JSON.stringify(session));
       setActive((previous) => ({ ...previous, [selected.id]: session }));
-      setSnapshots((previous) => ({ ...previous, [selected.id]: { ...previous[selected.id], sessionId: result.id!, status: "ACTIVE", phase: "ACTIVE", url: result.url!, expiresAt: result.expiresAt ?? null, reopenable: false } }));
+      setSnapshots((previous) => ({ ...previous, [selected.id]: { ...previous[selected.id], sessionId: result.id!, status: "ACTIVE", phase: "ACTIVE", url: result.url!, expiresAt: result.expiresAt ?? null, graceUntil: null, reopenable: false } }));
       setNow(Date.now());
     } catch (reopenError) {
       setError(reopenError instanceof Error ? reopenError.message : "평가를 다시 열지 못했습니다.");
@@ -243,7 +248,7 @@ export function SessionOperatorPanel({ classes }: { classes: SessionClass[] }) {
       if (!response.ok) throw new Error();
       localStorage.removeItem(storageKey(resetTarget.id));
       setActive((previous) => { const next = { ...previous }; delete next[resetTarget.id]; return next; });
-      setSnapshots((previous) => ({ ...previous, [resetTarget.id]: { ...previous[resetTarget.id], status: "READY", phase: "CLOSED", connected: 0, url: null, expiresAt: null, reopenable: true } }));
+      setSnapshots((previous) => ({ ...previous, [resetTarget.id]: { ...previous[resetTarget.id], status: "READY", phase: "CLOSED", connected: 0, url: null, expiresAt: null, graceUntil: null, reopenable: true } }));
       if (resetTarget.id === selected.id) setZoom(false);
       setResetClassId(null);
     } catch { setError("반을 리셋하지 못했습니다."); }
@@ -253,21 +258,21 @@ export function SessionOperatorPanel({ classes }: { classes: SessionClass[] }) {
   return <>
     <section className="card session-selector" id="session-detail">
       <div><div className="teacher-kicker">현장 운영요원</div><h2 style={{ margin: "5px 0 4px" }}>평가할 반을 선택하세요</h2><p style={{ margin: 0, color: "#5b6b84", fontSize: 13 }}>반 번호 순서로 정렬되어 있습니다. 선택한 반의 강사와 QR만 표시됩니다.</p></div>
-      <select className="class-picker" value={selectedId} onChange={(event) => chooseClass(event.target.value)}>{displayClasses.map((item) => <option key={item.id} value={item.id}>{item.classCode}반 · {item.room}호{withTime(item)} · {rowLabel[item.state]}</option>)}</select>
+      <select className="class-picker" value={selectedId} onChange={(event) => chooseClass(event.target.value)}>{displayClasses.map((item) => <option key={item.id} value={item.id}>{item.classCode}반 · {roomLabel(item.room)}{withTime(item)} · {rowLabel[item.state]}</option>)}</select>
     </section>
     {error && <div className="error" style={{ marginBottom: 14 }} role="alert">{error}</div>}
 
     <section className="grid-2 session-main-grid">
       <div className="card qr-session-card">
-        <div className="session-heading"><div><span className={`status ${isActive ? "NORMAL" : "INSUFFICIENT"}`}><Radio size={11} />{rowLabel[rowState(selectedSnapshot)]}</span><h2>{selected.classCode}반 · {selected.room}호</h2><div className="live-meta">{selected.instructors.join(" · ") || "배정 강사 없음"}</div></div>{selected.time && <div className="session-time"><Clock3 size={14} />{selected.time}</div>}</div>
+        <div className="session-heading"><div><span className={`status ${isActive ? "NORMAL" : "INSUFFICIENT"}`}><Radio size={11} />{rowLabel[rowState(selectedSnapshot)]}</span><h2>{selected.classCode}반 · {roomLabel(selected.room)}</h2><div className="live-meta">{selected.instructors.join(" · ") || "배정 강사 없음"}</div></div>{selected.time && <div className="session-time"><Clock3 size={14} />{selected.time}</div>}</div>
         {isActive && remainingMs !== null && <div className={`session-countdown ${remainingMs <= 60_000 ? "urgent" : ""}`} role="timer"><Timer size={15} />{remainingMs > 0 ? <>자동 마감까지 <strong>{formatRemaining(remainingMs)}</strong></> : <strong>마감 처리 중…</strong>}</div>}
         {isActive ? current ? <>
           <button className="qr-only-button" type="button" onClick={() => setZoom(true)}><Image src={current.qr} width={420} height={420} unoptimized alt={`${selected.classCode}반 강의평가 QR 코드`} className="qr-image" /></button>
           <a href={current.url} target="_blank" rel="noreferrer" className="btn btn-secondary full-button">학생 화면 미리보기 <ExternalLink size={15} /></a>
           <button className="btn btn-danger full-button" disabled={busy} onClick={stop}><Square size={14} />평가 종료</button>
         </> : <div className="qr-start-panel"><QrCode size={90} color="#c7d3e3" /><strong>QR 복원 중…</strong><small style={{ color: "#5b6b84" }}>진행 중인 QR 정보를 서버에서 불러오고 있습니다.</small><button className="btn btn-danger full-button" disabled={busy} onClick={stop}><Square size={14} />평가 종료</button></div> :
-          canReopen ? <div className="qr-start-panel"><QrCode size={90} color="#c7d3e3" /><strong>평가가 마감되었습니다</strong><small className="session-reopen-help">덜 끝난 학생이 있으면 같은 QR로 15분 다시 열 수 있습니다. 이미 제출한 학생은 다시 제출할 수 없습니다.</small><button className="btn btn-primary full-button" disabled={busy} onClick={reopen}><RefreshCw size={14} />같은 QR로 다시 열기 (15분)</button><details className="session-new-qr"><summary>새 QR로 처음부터 시작</summary><small className="session-reopen-help">새 QR을 만들면 이 반의 인쇄한 QR 카드는 더 이상 쓸 수 없습니다.</small><label className="field qr-target-field"><span>평가 대상 인원</span><input type="number" min={1} value={targets[selected.id] || 1} onChange={(event) => setTargets((previous) => ({ ...previous, [selected.id]: Number(event.target.value) }))} /></label><button className="btn btn-secondary full-button" disabled={busy || selected.instructors.length === 0} onClick={start}>새 QR 생성 및 평가 시작</button></details></div> :
-          <div className="qr-start-panel"><QrCode size={90} color="#c7d3e3" /><label className="field qr-target-field"><span>평가 대상 인원</span><input type="number" min={1} value={targets[selected.id] || 1} onChange={(event) => setTargets((previous) => ({ ...previous, [selected.id]: Number(event.target.value) }))} /></label><button className="btn btn-primary full-button" disabled={busy || selected.instructors.length === 0} onClick={start}>QR 생성 및 평가 시작 (15분)</button><small className="session-reopen-help">시작 후 15분이 지나면 자동으로 마감됩니다.</small></div>}
+          canReopen ? <div className="qr-start-panel"><QrCode size={90} color="#c7d3e3" /><strong>평가가 마감되었습니다</strong>{inGrace && <div className="session-countdown" role="timer"><Timer size={15} />작성 중 {selectedSnapshot?.connected ?? 0}명 제출 가능 <strong>{formatRemaining(graceMs!)}</strong></div>}<small className="session-reopen-help">덜 끝난 학생이 있으면 같은 QR로 15분 다시 열 수 있습니다. 이미 제출한 학생은 다시 제출할 수 없습니다.</small><button className="btn btn-primary full-button" disabled={busy} onClick={reopen}><RefreshCw size={14} />같은 QR로 다시 열기 (15분)</button><details className="session-new-qr"><summary>새 QR로 처음부터 시작</summary><small className="session-reopen-help">새 QR을 만들면 이 반의 인쇄한 QR 카드는 더 이상 쓸 수 없습니다.</small><label className="field qr-target-field"><span>평가 대상 인원</span><input type="number" min={1} value={targets[selected.id] || 1} onChange={(event) => setTargets((previous) => ({ ...previous, [selected.id]: Number(event.target.value) }))} /></label><button className="btn btn-secondary full-button" disabled={busy || selected.instructors.length === 0} onClick={start}>새 QR 생성 및 평가 시작</button></details></div> :
+          <div className="qr-start-panel"><QrCode size={90} color="#c7d3e3" /><label className="field qr-target-field"><span>평가 대상 인원</span><input type="number" min={1} value={targets[selected.id] || 1} onChange={(event) => setTargets((previous) => ({ ...previous, [selected.id]: Number(event.target.value) }))} /></label><button className="btn btn-primary full-button" disabled={busy || selected.instructors.length === 0} onClick={start}>QR 생성 및 평가 시작 (15분)</button><small className="session-reopen-help">시작 후 15분이 지나면 새 학생은 들어올 수 없고, 그 전에 시작한 학생은 10분 더 제출할 수 있습니다.</small></div>}
         <div className="live-stats" aria-live="polite"><div><span>대상</span><strong>{selectedSnapshot?.targetCount ?? selected.target}명</strong></div><div><span>접속 중</span><strong>{selectedSnapshot?.connected ?? selected.connected}명</strong></div><div><span>제출 완료</span><strong>{selectedSnapshot?.completed ?? selected.submitted}명</strong></div><div><span>미제출</span><strong>{selectedSnapshot?.remaining ?? selected.remaining}명</strong></div></div>
       </div>
       <div className="card"><div className="panel-head"><h2>평가 대상 강사</h2><span>{selected.instructors.length}명</span></div><div style={{ padding: "0 22px 20px", display: "grid", gap: 12 }}>{selected.instructors.map((name) => <div key={name} className="instructor-progress"><strong>{name} 강사</strong><span>개별 평가</span></div>)}</div></div>
@@ -275,13 +280,13 @@ export function SessionOperatorPanel({ classes }: { classes: SessionClass[] }) {
 
     <section className="card table-card desktop-schedule">
       <div className="panel-head session-table-head"><h2>평가 분반</h2><div className="session-filter-buttons" role="group" aria-label="일정 상태 필터">{(["ALL", "READY", "ACTIVE"] as const).map((filter) => <button key={filter} type="button" className={`filter-button ${statusFilter === filter ? "active" : ""}`} onClick={() => setStatusFilter(filter)}>{filter === "ALL" ? "전체" : filter === "READY" ? "대기·마감" : "진행 중"}<span>{filter === "ALL" ? displayClasses.length : displayClasses.filter((item) => item.status === filter).length}</span></button>)}</div></div>
-      <table className="data-table"><thead><tr>{showTime && <th>시간</th>}<th>반</th><th>강의실</th><th>평가 대상 강사</th><th>대상</th><th>접속 중</th><th>제출 완료</th><th>미제출</th><th>상태</th><th>관리</th></tr></thead><tbody>{filteredClasses.map((item) => <tr className={item.id === selected.id ? "selected-session-row" : ""} key={item.id}>{showTime && <td>{item.time || "–"}</td>}<td>{item.classCode}반</td><td>{item.room}호</td><td>{item.instructors.join(", ")}</td><td><Users size={13} /> {item.target}명</td><td>{item.connected}명</td><td><strong>{item.submitted}명</strong></td><td>{item.remaining}명</td><td><span className={`status ${item.status === "ACTIVE" ? "NORMAL" : "INSUFFICIENT"}`}>{rowLabel[item.state]}</span></td><td><div className="session-row-actions"><button className={`btn ${item.id === selected.id ? "btn-primary" : "btn-secondary"}`} type="button" onClick={() => chooseClass(item.id)}>{item.id === selected.id ? "선택됨" : "선택"}</button><button className="btn btn-danger" type="button" disabled={item.status !== "ACTIVE" || busy} onClick={() => setResetClassId(item.id)}><RotateCcw size={13} />리셋</button></div></td></tr>)}</tbody></table>
+      <table className="data-table"><thead><tr>{showTime && <th>시간</th>}<th>반</th><th>강의실</th><th>평가 대상 강사</th><th>대상</th><th>접속 중</th><th>제출 완료</th><th>미제출</th><th>상태</th><th>관리</th></tr></thead><tbody>{filteredClasses.map((item) => <tr className={item.id === selected.id ? "selected-session-row" : ""} key={item.id}>{showTime && <td>{item.time || "–"}</td>}<td>{item.classCode}반</td><td>{roomLabel(item.room)}</td><td>{item.instructors.join(", ")}</td><td><Users size={13} /> {item.target}명</td><td>{item.connected}명</td><td><strong>{item.submitted}명</strong></td><td>{item.remaining}명</td><td><span className={`status ${item.status === "ACTIVE" ? "NORMAL" : "INSUFFICIENT"}`}>{rowLabel[item.state]}</span></td><td><div className="session-row-actions"><button className={`btn ${item.id === selected.id ? "btn-primary" : "btn-secondary"}`} type="button" onClick={() => chooseClass(item.id)}>{item.id === selected.id ? "선택됨" : "선택"}</button><button className="btn btn-danger" type="button" disabled={item.status !== "ACTIVE" || busy} onClick={() => setResetClassId(item.id)}><RotateCcw size={13} />리셋</button></div></td></tr>)}</tbody></table>
       {filteredClasses.length === 0 && <div className="session-empty-filter">선택한 상태의 분반이 없습니다.</div>}
     </section>
 
-    <section className="mobile-schedule"><div className="mobile-schedule-heading"><h2>평가 분반</h2><span>3초마다 자동 갱신</span></div>{filteredClasses.map((item) => <div className={`mobile-class-card ${item.id === selected.id ? "selected" : ""}`} key={item.id}><button className="mobile-class-select" type="button" onClick={() => chooseClass(item.id)}><span className="mobile-class-room">{item.classCode}반</span><span className="mobile-class-copy"><strong>{item.room}호{withTime(item)}</strong><small>접속 {item.connected}명 · 제출 {item.submitted}명</small></span><span className={`status ${item.status === "ACTIVE" ? "NORMAL" : "INSUFFICIENT"}`}>{item.state === "READY" ? "대기" : rowLabel[item.state]}</span></button><button className="mobile-reset-button" type="button" aria-label={`${item.classCode}반 리셋`} disabled={item.status !== "ACTIVE" || busy} onClick={() => setResetClassId(item.id)}><RotateCcw size={15} /></button></div>)}</section>
+    <section className="mobile-schedule"><div className="mobile-schedule-heading"><h2>평가 분반</h2><span>3초마다 자동 갱신</span></div>{filteredClasses.map((item) => <div className={`mobile-class-card ${item.id === selected.id ? "selected" : ""}`} key={item.id}><button className="mobile-class-select" type="button" onClick={() => chooseClass(item.id)}><span className="mobile-class-room">{item.classCode}반</span><span className="mobile-class-copy"><strong>{roomLabel(item.room)}{withTime(item)}</strong><small>접속 {item.connected}명 · 제출 {item.submitted}명</small></span><span className={`status ${item.status === "ACTIVE" ? "NORMAL" : "INSUFFICIENT"}`}>{item.state === "READY" ? "대기" : rowLabel[item.state]}</span></button><button className="mobile-reset-button" type="button" aria-label={`${item.classCode}반 리셋`} disabled={item.status !== "ACTIVE" || busy} onClick={() => setResetClassId(item.id)}><RotateCcw size={15} /></button></div>)}</section>
 
-    {zoom && current && <div className="qr-modal" role="dialog" aria-modal="true" onClick={() => setZoom(false)}><div className="qr-modal-card" onClick={(event) => event.stopPropagation()}><button className="qr-modal-close" type="button" onClick={() => setZoom(false)} aria-label="QR 확대 닫기"><X size={19} /></button><Image src={current.qr} width={420} height={420} unoptimized alt="확대된 강의평가 QR 코드" /><strong>{selected.classCode}반 · {selected.room}호</strong></div></div>}
+    {zoom && current && <div className="qr-modal" role="dialog" aria-modal="true" onClick={() => setZoom(false)}><div className="qr-modal-card" onClick={(event) => event.stopPropagation()}><button className="qr-modal-close" type="button" onClick={() => setZoom(false)} aria-label="QR 확대 닫기"><X size={19} /></button><Image src={current.qr} width={420} height={420} unoptimized alt="확대된 강의평가 QR 코드" /><strong>{selected.classCode}반 · {roomLabel(selected.room)}</strong></div></div>}
     {resetTarget && <div className="qr-modal" role="dialog" aria-modal="true" aria-label="반 리셋 확인" onClick={() => setResetClassId(null)}><div className="qr-modal-card reset-confirm-card" onClick={(event) => event.stopPropagation()}><h2>반 리셋</h2><p><strong>{resetTarget.classCode}반</strong>의 진행 중 평가를 종료하고 시작 대기 상태로 전환합니다. 제출 완료 기록은 삭제되지 않습니다.</p><small>Google 인증된 관리자 계정으로 실행됩니다.</small><div className="reset-confirm-actions"><button className="btn btn-secondary" type="button" onClick={() => setResetClassId(null)}>취소</button><button className="btn btn-danger" type="button" disabled={busy} onClick={resetClass}>리셋 실행</button></div></div></div>}
   </>;
 }

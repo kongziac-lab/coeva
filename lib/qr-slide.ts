@@ -1,4 +1,5 @@
 import QRCode from "qrcode";
+import { roomLabel } from "@/lib/room";
 
 export type SlideCard = { classCode: string; room: string; instructors: string[]; url: string };
 
@@ -52,8 +53,8 @@ export async function renderQrSlide(card: SlideCard, termName: string, fontFamil
   fitText(context, `${card.classCode}반`, textWidth, 900, 220, fontFamily);
   context.fillText(`${card.classCode}반`, left, 420);
   context.fillStyle = MUTED;
-  fitText(context, `${card.room}호`, textWidth, 800, 110, fontFamily);
-  context.fillText(`${card.room}호`, left, 560);
+  fitText(context, `${roomLabel(card.room)}`, textWidth, 800, 110, fontFamily);
+  context.fillText(`${roomLabel(card.room)}`, left, 560);
   if (card.instructors.length) {
     fitText(context, card.instructors.join(" · "), textWidth, 500, 44, fontFamily);
     context.fillText(card.instructors.join(" · "), left, 650);

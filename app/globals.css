@@ -314,6 +314,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid rgba(13, 49, 104, .55
 .round-actions .btn { flex: 1; min-height: 46px; justify-content: center; }
 .round-actions .btn-danger { flex: 0 0 auto; }
 .round-note { color: var(--muted); font-size: 12px; }
+.round-grace { color: #a0620d !important; font-weight: 700; font-family: var(--mono); }
 .round-empty { text-align: center; color: var(--muted); padding: 40px 16px; }
 
 .survey-gate-card { text-align: center; display: grid; justify-items: center; gap: 4px; }

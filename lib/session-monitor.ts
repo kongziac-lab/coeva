@@ -1,16 +1,17 @@
-import { and, desc, eq, inArray, isNotNull, lte } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, lte, sql } from "drizzle-orm";
 import { classes, evaluationSessions, participation } from "@/db/schema";
 import { getDb } from "@/lib/db";
 import { decryptPublicToken } from "@/lib/security";
 import { recalculateTermResults } from "@/lib/results";
 
+import { graceDeadline, isInSubmitGrace } from "@/lib/session-window";
 export { SESSION_OPEN_MINUTES, isSessionOpen, sessionDeadline } from "@/lib/session-window";
 
 // 마감 시각이 지난 진행 중 세션을 닫고, 해당 학기 결과를 다시 계산한다.
 export async function closeExpiredSessions() {
   const db = getDb();
   const closed = await db.update(evaluationSessions)
-    .set({ status: "CLOSED", closedAt: new Date() })
+    .set({ status: "CLOSED", closedAt: sql`${evaluationSessions.expiresAt}` })
     .where(and(eq(evaluationSessions.status, "ACTIVE"), isNotNull(evaluationSessions.expiresAt), lte(evaluationSessions.expiresAt, new Date())))
     .returning({ classId: evaluationSessions.classId });
   for (const classId of new Set(closed.map((row) => row.classId))) await recalculateClassTerm(classId);
@@ -24,6 +25,8 @@ export type SessionSnapshot = {
   // READY: 아직 열지 않음(QR 카드만 준비된 경우 포함), ACTIVE: 진행 중, CLOSED: 마감
   phase: "READY" | "ACTIVE" | "CLOSED";
   expiresAt: string | null;
+  // 자동 마감 뒤, 마감 전에 시작한 학생이 제출할 수 있는 마지막 시각
+  graceUntil: string | null;
   reopenable: boolean;
   targetCount: number;
   connected: number;
@@ -48,6 +51,7 @@ export async function getSessionSnapshots(requestOrigin?: string, termId?: strin
     targetCount: evaluationSessions.targetCount,
     status: evaluationSessions.status,
     expiresAt: evaluationSessions.expiresAt,
+    closedAt: evaluationSessions.closedAt,
     tokenCiphertext: evaluationSessions.tokenCiphertext,
   }).from(evaluationSessions)
     .innerJoin(classes, eq(evaluationSessions.classId, classes.id))
@@ -75,6 +79,7 @@ export async function getSessionSnapshots(requestOrigin?: string, termId?: strin
       status: session.status === "ACTIVE" ? "ACTIVE" : "READY",
       phase: session.status === "ACTIVE" ? "ACTIVE" : session.status === "DRAFT" ? "READY" : "CLOSED",
       expiresAt: session.status === "ACTIVE" ? session.expiresAt?.toISOString() ?? null : null,
+      graceUntil: session.expiresAt && isInSubmitGrace(session) ? graceDeadline(session.expiresAt).toISOString() : null,
       reopenable: session.status === "CLOSED" && Boolean(session.tokenCiphertext),
       targetCount: session.targetCount,
       connected,
