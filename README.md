@@ -9,7 +9,7 @@
 3. `npm run db:generate`, `npm run db:migrate`, `npm run db:seed`를 실행합니다.
 4. `npm run dev`로 웹앱을 시작합니다.
 
-데모 관리자 계정은 환경 변수가 없을 때만 `admin@kmu.ac.kr` / `demo-admin`입니다. 학생용 데모는 `/survey/demo-134`에서 확인할 수 있습니다.
+데모 관리자 계정은 환경 변수가 없을 때만 `admin@kmu.kr` / `demo-admin`입니다. 학생용 데모는 `/survey/demo-134`에서 확인할 수 있습니다.
 
 ## Google Workspace 관리자 로그인
 

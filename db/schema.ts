@@ -42,7 +42,7 @@ export const questionnaireVersions = pgTable("questionnaire_versions", {
 
 export const evaluationSessions = pgTable("evaluation_sessions", {
   id: uuid("id").defaultRandom().primaryKey(), classId: uuid("class_id").notNull().references(() => classes.id), questionnaireId: uuid("questionnaire_id").notNull().references(() => questionnaireVersions.id),
-  tokenHash: text("token_hash").notNull(), status: sessionStatus("status").default("DRAFT").notNull(), targetCount: integer("target_count").notNull(),
+  tokenHash: text("token_hash").notNull(), tokenCiphertext: text("token_ciphertext"), status: sessionStatus("status").default("DRAFT").notNull(), targetCount: integer("target_count").notNull(),
   opensAt: timestamp("opens_at", { withTimezone: true }), expiresAt: timestamp("expires_at", { withTimezone: true }), closedAt: timestamp("closed_at", { withTimezone: true }),
   createdBy: uuid("created_by").references(() => admins.id), createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [uniqueIndex("sessions_token_idx").on(t.tokenHash)]);

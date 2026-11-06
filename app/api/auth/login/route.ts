@@ -54,7 +54,7 @@ export async function POST(request: Request) {
     if (isProduction()) return NextResponse.json({ error: "service_unavailable" }, { status: 503 });
   }
 
-  const expectedEmail = (process.env.ADMIN_EMAIL ?? (isProduction() ? "" : "admin@kmu.ac.kr")).toLowerCase();
+  const expectedEmail = (process.env.ADMIN_EMAIL ?? (isProduction() ? "" : "admin@kmu.kr")).toLowerCase();
   const expectedPassword = process.env.ADMIN_PASSWORD ?? "";
   const isDefaultAdmin = Boolean(expectedEmail && expectedPassword) && safeEqual(email, expectedEmail) && safeEqual(result.data.password, expectedPassword);
   if (!isDefaultAdmin) {
