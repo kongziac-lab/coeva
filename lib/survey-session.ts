@@ -34,3 +34,18 @@ export async function getSurveyPayload(token: string): Promise<SurveyPayload | n
     };
   } catch { return null; }
 }
+
+export type SurveyGate = { state: "pending" | "closed"; classCode: string; room: string };
+
+// 열려 있지 않은 QR을 스캔한 학생에게 보여 줄 상태. 없는 QR이면 null.
+export async function getSurveyGate(token: string): Promise<SurveyGate | null> {
+  try {
+    const [session] = await getDb().select({ status: evaluationSessions.status, classCode: classes.code, room: classes.room })
+      .from(evaluationSessions)
+      .innerJoin(classes, eq(evaluationSessions.classId, classes.id))
+      .where(eq(evaluationSessions.tokenHash, hashToken(token)))
+      .limit(1);
+    if (!session) return null;
+    return { state: session.status === "DRAFT" ? "pending" : "closed", classCode: session.classCode, room: session.room };
+  } catch { return null; }
+}

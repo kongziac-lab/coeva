@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { copy, locales, normalizeLocale } from "./i18n";
+import { copy, detectBrowserLocale, locales, normalizeLocale } from "./i18n";
 
 describe("survey translations", () => {
   it("provides seven questions and five scale labels for every supported language", () => {
@@ -22,6 +22,12 @@ describe("survey translations", () => {
     expect(normalizeLocale("in-ID")).toBe("id");
     expect(normalizeLocale("th-TH")).toBe("th");
     expect(normalizeLocale("uz-Latn-UZ")).toBe("uz");
+  });
+
+  it("picks the first supported browser language and keeps Korean otherwise", () => {
+    expect(detectBrowserLocale(["ko-KR", "en-US"])).toBe("ko");
+    expect(detectBrowserLocale(["fr-FR", "my-MM", "en"])).toBe("my");
+    expect(detectBrowserLocale(["fr-FR", "de-DE"])).toBeNull();
   });
 
   it("fills every message for every language", () => {

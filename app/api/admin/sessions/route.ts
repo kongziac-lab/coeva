@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { classes, evaluationSessions } from "@/db/schema";
 import { getDb } from "@/lib/db";
-import { createPublicToken, encryptPublicToken, hashToken } from "@/lib/security";
+import { createPublicToken, decryptPublicToken, encryptPublicToken, hashToken } from "@/lib/security";
 import { getAdminSession } from "@/lib/auth";
 import { closeExpiredSessions, getPublicSurveyUrl, getSessionSnapshots, recalculateClassTerm, sessionDeadline } from "@/lib/session-monitor";
 import { ensureQuestionnaire, getActiveTerm, getTermQuestionnaireId } from "@/lib/terms";
@@ -24,6 +24,18 @@ export async function POST(request: Request) {
     const [classRow] = await db.select({ termId: classes.termId }).from(classes).where(eq(classes.id, parsed.data.classId)).limit(1);
     const term = await getActiveTerm(db);
     if (!classRow || !term || classRow.termId !== term.id) return NextResponse.json({ error: "class_not_in_active_term" }, { status: 409 });
+    // QR 카드로 미리 준비한 세션이 있으면 같은 QR을 그대로 열어 인쇄한 카드가 계속 쓰이게 한다.
+    const [latest] = await db.select({ id: evaluationSessions.id, status: evaluationSessions.status, tokenCiphertext: evaluationSessions.tokenCiphertext })
+      .from(evaluationSessions).where(eq(evaluationSessions.classId, parsed.data.classId)).orderBy(desc(evaluationSessions.createdAt)).limit(1);
+    if (latest?.status === "DRAFT" && latest.tokenCiphertext) {
+      const [opened] = await db.update(evaluationSessions)
+        .set({ status: "ACTIVE", targetCount: parsed.data.targetCount, opensAt: new Date(), expiresAt: sessionDeadline(), closedAt: null })
+        .where(and(eq(evaluationSessions.id, latest.id), eq(evaluationSessions.status, "DRAFT")))
+        .returning({ id: evaluationSessions.id, expiresAt: evaluationSessions.expiresAt });
+      if (!opened) return NextResponse.json({ error: "session_already_active" }, { status: 409 });
+      const url = getPublicSurveyUrl(decryptPublicToken(latest.tokenCiphertext), new URL(request.url).origin);
+      return NextResponse.json({ id: opened.id, classId: parsed.data.classId, url, targetCount: parsed.data.targetCount, connected: 0, completed: 0, remaining: parsed.data.targetCount, status: "ACTIVE", expiresAt: opened.expiresAt?.toISOString() ?? null });
+    }
     const questionnaireId = await getTermQuestionnaireId(term.id, db) ?? await ensureQuestionnaire(db, term.id);
     const token = createPublicToken();
     const [session] = await db.insert(evaluationSessions).values({

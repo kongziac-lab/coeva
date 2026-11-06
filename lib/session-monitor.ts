@@ -21,6 +21,8 @@ export type SessionSnapshot = {
   classId: string;
   sessionId: string;
   status: "ACTIVE" | "READY";
+  // READY: 아직 열지 않음(QR 카드만 준비된 경우 포함), ACTIVE: 진행 중, CLOSED: 마감
+  phase: "READY" | "ACTIVE" | "CLOSED";
   expiresAt: string | null;
   reopenable: boolean;
   targetCount: number;
@@ -71,6 +73,7 @@ export async function getSessionSnapshots(requestOrigin?: string, termId?: strin
       classId: session.classId,
       sessionId: session.id,
       status: session.status === "ACTIVE" ? "ACTIVE" : "READY",
+      phase: session.status === "ACTIVE" ? "ACTIVE" : session.status === "DRAFT" ? "READY" : "CLOSED",
       expiresAt: session.status === "ACTIVE" ? session.expiresAt?.toISOString() ?? null : null,
       reopenable: session.status === "CLOSED" && Boolean(session.tokenCiphertext),
       targetCount: session.targetCount,

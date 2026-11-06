@@ -5,22 +5,9 @@ import { useEffect, useMemo, useState } from "react";
 import { Clock3, ExternalLink, QrCode, Radio, RefreshCw, RotateCcw, Square, Timer, Users, X } from "lucide-react";
 import QRCode from "qrcode";
 
-export type SessionClass = {
-  id: string;
-  room: string;
-  classCode: string;
-  time: string;
-  instructors: string[];
-  target: number;
-  connected: number;
-  submitted: number;
-  remaining: number;
-  status: string;
-  sessionId: string | null;
-  url: string | null;
-  expiresAt: string | null;
-  reopenable: boolean;
-};
+import type { SessionClass, SessionPhase } from "@/lib/session-classes";
+
+export type { SessionClass };
 
 type ActiveSession = { id: string; url: string; qr: string };
 type StatusFilter = "ALL" | "READY" | "ACTIVE";
@@ -28,6 +15,7 @@ type SessionSnapshot = {
   classId: string;
   sessionId: string | null;
   status: "ACTIVE" | "READY";
+  phase: SessionPhase;
   targetCount: number;
   connected: number;
   completed: number;
@@ -43,6 +31,7 @@ function initialSnapshots(classes: SessionClass[]) {
     classId: item.id,
     sessionId: item.sessionId,
     status: item.status === "ACTIVE" ? "ACTIVE" : "READY",
+    phase: item.phase,
     targetCount: item.target,
     connected: item.connected,
     completed: item.submitted,
@@ -57,11 +46,10 @@ function storageKey(classId: string) {
   return `coeva_active_session_${classId}`;
 }
 
-type RowState = "ACTIVE" | "READY" | "CLOSED";
+type RowState = SessionPhase;
 const rowLabel: Record<RowState, string> = { ACTIVE: "진행 중", READY: "시작 대기", CLOSED: "마감" };
 function rowState(snapshot: SessionSnapshot | null | undefined): RowState {
-  if (snapshot?.status === "ACTIVE") return "ACTIVE";
-  return snapshot?.sessionId ? "CLOSED" : "READY";
+  return snapshot?.phase ?? "READY";
 }
 function formatRemaining(ms: number) {
   const total = Math.max(0, Math.ceil(ms / 1000));
@@ -201,7 +189,7 @@ export function SessionOperatorPanel({ classes }: { classes: SessionClass[] }) {
       const session = { id: result.id, url: result.url, qr };
       localStorage.setItem(storageKey(selected.id), JSON.stringify(session));
       setActive((previous) => ({ ...previous, [selected.id]: session }));
-      setSnapshots((previous) => ({ ...previous, [selected.id]: { classId: selected.id, sessionId: result.id!, status: "ACTIVE", targetCount: result.targetCount ?? targets[selected.id] ?? 1, connected: 0, completed: 0, remaining: result.targetCount ?? targets[selected.id] ?? 1, url: result.url!, expiresAt: result.expiresAt ?? null, reopenable: false } }));
+      setSnapshots((previous) => ({ ...previous, [selected.id]: { classId: selected.id, sessionId: result.id!, status: "ACTIVE", phase: "ACTIVE", targetCount: result.targetCount ?? targets[selected.id] ?? 1, connected: 0, completed: 0, remaining: result.targetCount ?? targets[selected.id] ?? 1, url: result.url!, expiresAt: result.expiresAt ?? null, reopenable: false } }));
       setNow(Date.now());
     } catch (startError) {
       setError(startError instanceof Error ? startError.message : "평가 세션을 시작하지 못했습니다.");
@@ -217,7 +205,7 @@ export function SessionOperatorPanel({ classes }: { classes: SessionClass[] }) {
       if (!response.ok) throw new Error();
       localStorage.removeItem(storageKey(selected.id));
       setActive((previous) => { const next = { ...previous }; delete next[selected.id]; return next; });
-      setSnapshots((previous) => ({ ...previous, [selected.id]: { ...previous[selected.id], sessionId: id, status: "READY", connected: 0, url: null, expiresAt: null, reopenable: true } }));
+      setSnapshots((previous) => ({ ...previous, [selected.id]: { ...previous[selected.id], sessionId: id, status: "READY", phase: "CLOSED", connected: 0, url: null, expiresAt: null, reopenable: true } }));
       setZoom(false);
     } catch { setError("평가 세션을 종료하지 못했습니다."); }
     finally { setBusy(false); }
@@ -240,7 +228,7 @@ export function SessionOperatorPanel({ classes }: { classes: SessionClass[] }) {
       const session = { id: result.id, url: result.url, qr };
       localStorage.setItem(storageKey(selected.id), JSON.stringify(session));
       setActive((previous) => ({ ...previous, [selected.id]: session }));
-      setSnapshots((previous) => ({ ...previous, [selected.id]: { ...previous[selected.id], sessionId: result.id!, status: "ACTIVE", url: result.url!, expiresAt: result.expiresAt ?? null, reopenable: false } }));
+      setSnapshots((previous) => ({ ...previous, [selected.id]: { ...previous[selected.id], sessionId: result.id!, status: "ACTIVE", phase: "ACTIVE", url: result.url!, expiresAt: result.expiresAt ?? null, reopenable: false } }));
       setNow(Date.now());
     } catch (reopenError) {
       setError(reopenError instanceof Error ? reopenError.message : "평가를 다시 열지 못했습니다.");
@@ -255,7 +243,7 @@ export function SessionOperatorPanel({ classes }: { classes: SessionClass[] }) {
       if (!response.ok) throw new Error();
       localStorage.removeItem(storageKey(resetTarget.id));
       setActive((previous) => { const next = { ...previous }; delete next[resetTarget.id]; return next; });
-      setSnapshots((previous) => ({ ...previous, [resetTarget.id]: { ...previous[resetTarget.id], status: "READY", connected: 0, url: null, expiresAt: null, reopenable: true } }));
+      setSnapshots((previous) => ({ ...previous, [resetTarget.id]: { ...previous[resetTarget.id], status: "READY", phase: "CLOSED", connected: 0, url: null, expiresAt: null, reopenable: true } }));
       if (resetTarget.id === selected.id) setZoom(false);
       setResetClassId(null);
     } catch { setError("반을 리셋하지 못했습니다."); }
@@ -278,7 +266,7 @@ export function SessionOperatorPanel({ classes }: { classes: SessionClass[] }) {
           <a href={current.url} target="_blank" rel="noreferrer" className="btn btn-secondary full-button">학생 화면 미리보기 <ExternalLink size={15} /></a>
           <button className="btn btn-danger full-button" disabled={busy} onClick={stop}><Square size={14} />평가 종료</button>
         </> : <div className="qr-start-panel"><QrCode size={90} color="#c7d3e3" /><strong>QR 복원 중…</strong><small style={{ color: "#5b6b84" }}>진행 중인 QR 정보를 서버에서 불러오고 있습니다.</small><button className="btn btn-danger full-button" disabled={busy} onClick={stop}><Square size={14} />평가 종료</button></div> :
-          canReopen ? <div className="qr-start-panel"><QrCode size={90} color="#c7d3e3" /><strong>평가가 마감되었습니다</strong><small className="session-reopen-help">덜 끝난 학생이 있으면 같은 QR로 15분 다시 열 수 있습니다. 이미 제출한 학생은 다시 제출할 수 없습니다.</small><button className="btn btn-primary full-button" disabled={busy} onClick={reopen}><RefreshCw size={14} />같은 QR로 다시 열기 (15분)</button><details className="session-new-qr"><summary>새 QR로 처음부터 시작</summary><label className="field qr-target-field"><span>평가 대상 인원</span><input type="number" min={1} value={targets[selected.id] || 1} onChange={(event) => setTargets((previous) => ({ ...previous, [selected.id]: Number(event.target.value) }))} /></label><button className="btn btn-secondary full-button" disabled={busy || selected.instructors.length === 0} onClick={start}>새 QR 생성 및 평가 시작</button></details></div> :
+          canReopen ? <div className="qr-start-panel"><QrCode size={90} color="#c7d3e3" /><strong>평가가 마감되었습니다</strong><small className="session-reopen-help">덜 끝난 학생이 있으면 같은 QR로 15분 다시 열 수 있습니다. 이미 제출한 학생은 다시 제출할 수 없습니다.</small><button className="btn btn-primary full-button" disabled={busy} onClick={reopen}><RefreshCw size={14} />같은 QR로 다시 열기 (15분)</button><details className="session-new-qr"><summary>새 QR로 처음부터 시작</summary><small className="session-reopen-help">새 QR을 만들면 이 반의 인쇄한 QR 카드는 더 이상 쓸 수 없습니다.</small><label className="field qr-target-field"><span>평가 대상 인원</span><input type="number" min={1} value={targets[selected.id] || 1} onChange={(event) => setTargets((previous) => ({ ...previous, [selected.id]: Number(event.target.value) }))} /></label><button className="btn btn-secondary full-button" disabled={busy || selected.instructors.length === 0} onClick={start}>새 QR 생성 및 평가 시작</button></details></div> :
           <div className="qr-start-panel"><QrCode size={90} color="#c7d3e3" /><label className="field qr-target-field"><span>평가 대상 인원</span><input type="number" min={1} value={targets[selected.id] || 1} onChange={(event) => setTargets((previous) => ({ ...previous, [selected.id]: Number(event.target.value) }))} /></label><button className="btn btn-primary full-button" disabled={busy || selected.instructors.length === 0} onClick={start}>QR 생성 및 평가 시작 (15분)</button><small className="session-reopen-help">시작 후 15분이 지나면 자동으로 마감됩니다.</small></div>}
         <div className="live-stats" aria-live="polite"><div><span>대상</span><strong>{selectedSnapshot?.targetCount ?? selected.target}명</strong></div><div><span>접속 중</span><strong>{selectedSnapshot?.connected ?? selected.connected}명</strong></div><div><span>제출 완료</span><strong>{selectedSnapshot?.completed ?? selected.submitted}명</strong></div><div><span>미제출</span><strong>{selectedSnapshot?.remaining ?? selected.remaining}명</strong></div></div>
       </div>

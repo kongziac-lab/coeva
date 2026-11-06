@@ -287,6 +287,70 @@ button:focus-visible, a:focus-visible { outline: 2px solid rgba(13, 49, 104, .55
 .session-new-qr summary { cursor: pointer; color: #5b6b84; font-size: 12px; text-align: center; padding: 6px 0; }
 .session-new-qr[open] summary { margin-bottom: 4px; }
 
+/* ── Operator shortcuts, round mode, printable QR cards ── */
+.page-head-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+.round-page { min-height: 100vh; background: var(--canvas); padding: 0 0 40px; }
+.round-head { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--navy); color: #fff; }
+.round-head strong { display: block; font-size: 17px; }
+.round-head span { font-size: 12px; opacity: .8; }
+.round-back { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; background: rgba(255, 255, 255, .12); color: #fff; }
+.round-controls { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; padding: 12px 16px 4px; }
+.round-error { margin: 8px 16px 0; }
+.round-list { list-style: none; margin: 0; padding: 8px 16px; display: grid; gap: 10px; max-width: 720px; }
+.round-card { background: var(--surface); border: 1px solid var(--navy-line); border-radius: 14px; padding: 14px; display: grid; gap: 12px; box-shadow: var(--shadow); }
+.round-card.phase-ACTIVE { border-color: #9dd8bf; box-shadow: 0 0 0 2px rgba(31, 125, 92, .12); }
+.round-card.phase-CLOSED { opacity: .86; }
+.round-card-main { display: grid; grid-template-columns: 64px 1fr auto; gap: 12px; align-items: center; }
+.round-room { height: 56px; border-radius: 12px; background: var(--tint); color: var(--navy); display: grid; place-items: center; font-weight: 900; font-size: 18px; line-height: 1; text-align: center; }
+.round-room small { display: block; font-size: 10px; font-weight: 600; margin-top: 2px; }
+.round-info { display: grid; gap: 3px; min-width: 0; }
+.round-info strong { display: flex; align-items: center; gap: 8px; font-size: 16px; }
+.round-info span { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.round-stats b { color: var(--navy); }
+.round-timer { display: flex; align-items: center; gap: 4px; padding: 6px 9px; border-radius: 9px; background: var(--tint); color: var(--navy); font-family: var(--mono); font-weight: 600; font-size: 14px; }
+.round-timer.urgent { background: var(--red-soft); color: var(--crimson-deep); }
+.round-actions { display: flex; gap: 8px; }
+.round-actions .btn { flex: 1; min-height: 46px; justify-content: center; }
+.round-actions .btn-danger { flex: 0 0 auto; }
+.round-note { color: var(--muted); font-size: 12px; }
+.round-empty { text-align: center; color: var(--muted); padding: 40px 16px; }
+
+.survey-gate-card { text-align: center; display: grid; justify-items: center; gap: 4px; }
+.survey-gate-card .btn { margin-top: 8px; }
+
+.qr-cards-page { padding: 20px; background: var(--canvas); min-height: 100vh; }
+.qr-cards-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 10px; }
+.qr-cards-title { display: grid; margin-right: auto; }
+.qr-cards-title span { color: var(--muted); font-size: 12px; }
+.qr-cards-help { color: var(--muted); font-size: 13px; line-height: 1.6; max-width: 860px; }
+.qr-cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+.qr-card { background: #fff; border: 1.5px dashed #b9c6d8; border-radius: 16px; padding: 18px; display: grid; justify-items: center; text-align: center; gap: 6px; break-inside: avoid; }
+.qr-card-head { width: 100%; display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
+.qr-card-brand { color: var(--navy); font-weight: 800; }
+.qr-card h2 { margin: 4px 0 0; font-size: 30px; color: var(--navy); }
+.qr-card h2 small { font-size: 18px; color: var(--muted); font-weight: 700; }
+.qr-card-code { width: 100%; max-width: 240px; height: auto; }
+.qr-card-cta { margin: 0; font-weight: 700; font-size: 13px; }
+.qr-card-cta span { font-weight: 500; color: var(--muted); font-size: 11px; }
+.qr-card-instructors { margin: 0; font-size: 11px; color: var(--muted); }
+@media print {
+  @page { size: A4; margin: 10mm; }
+  .no-print { display: none !important; }
+  body, .qr-cards-page { background: #fff !important; padding: 0 !important; }
+  .qr-cards-grid { gap: 0; }
+  .layout-quad .qr-cards-grid { grid-template-columns: 1fr 1fr; }
+  .layout-quad .qr-card { height: 136mm; border-radius: 0; padding: 8mm; align-content: center; }
+  .layout-quad .qr-card-code { max-width: 70mm; }
+  .layout-single .qr-cards-grid { grid-template-columns: 1fr; }
+  .layout-single .qr-card { height: 275mm; border: 0; align-content: center; break-after: page; }
+  .layout-single .qr-card h2 { font-size: 64px; }
+  .layout-single .qr-card h2 small { font-size: 36px; }
+  .layout-single .qr-card-code { max-width: 150mm; }
+  .layout-single .qr-card-cta { font-size: 22px; }
+  .layout-single .qr-card-cta span { font-size: 16px; }
+}
+
 /* ── Term management ── */
 .term-badge { display: inline-flex; align-items: center; padding: 9px 12px; font-size: 13px; font-weight: 700; color: var(--navy); white-space: nowrap; }
 a.term-badge:hover { border-color: var(--blue-mid); background: var(--tint); }

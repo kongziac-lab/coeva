@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Check, LockKeyhole, UserRound, X } from "lucide-react";
-import { copy, languageNames, Locale, locales, normalizeLocale } from "@/lib/i18n";
+import { copy, detectBrowserLocale, languageNames, Locale, locales } from "@/lib/i18n";
 
 export type SurveyInstructor = { assignmentId: string; name: string; photoUrl: string | null };
 
@@ -36,10 +36,8 @@ export function SurveyForm({ classCode, room, instructors, token }: SurveyFormPr
   );
 
   useEffect(() => {
-    // 브라우저 선호 언어 중 지원하는 첫 언어를 고른다(없으면 한국어 유지).
-    const detected = (navigator.languages?.length ? navigator.languages : [navigator.language])
-      .find((language) => normalizeLocale(language) !== "ko" || language.toLowerCase().startsWith("ko"));
-    if (detected) setLocale(normalizeLocale(detected));
+    const detected = detectBrowserLocale(navigator.languages?.length ? navigator.languages : [navigator.language]);
+    if (detected) setLocale(detected);
     if (!localStorage.getItem("coeva_device")) {
       localStorage.setItem("coeva_device", `${crypto.randomUUID()}${crypto.randomUUID()}`);
     }
