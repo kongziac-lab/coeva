@@ -26,8 +26,8 @@ export const instructors = pgTable("instructors", {
 
 export const classes = pgTable("classes", {
   id: uuid("id").defaultRandom().primaryKey(), termId: uuid("term_id").notNull().references(() => terms.id),
-  code: text("code").notNull(), room: text("room").notNull(), scheduledAt: timestamp("scheduled_at", { withTimezone: true }).notNull(),
-  scheduledEndAt: timestamp("scheduled_end_at", { withTimezone: true }).notNull(), eligibleCount: integer("eligible_count").default(0).notNull(),
+  code: text("code").notNull(), room: text("room").notNull(), scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
+  scheduledEndAt: timestamp("scheduled_end_at", { withTimezone: true }), eligibleCount: integer("eligible_count").default(0).notNull(),
 }, (t) => [uniqueIndex("classes_term_code_idx").on(t.termId, t.code)]);
 
 export const teachingAssignments = pgTable("teaching_assignments", {

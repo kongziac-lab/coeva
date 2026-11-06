@@ -5,6 +5,7 @@ import { anonymousResponses, auditLogs, classes, instructors, teachingAssignment
 import { getAdminSession } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { getActiveTerm } from "@/lib/terms";
+import { ScheduleSheetError, readScheduleSheet } from "@/lib/schedule-sheet";
 
 type ImportError = Error & { code?: string };
 
@@ -48,13 +49,8 @@ function koreaDateTime(dateValue: unknown, timeValue: unknown, defaultYear?: num
   return new Date(`${date.year}-${pad(date.month)}-${pad(date.day)}T${pad(time.hour)}:${pad(time.minute)}:00+09:00`);
 }
 
-function eligibleCountFromValue(value: unknown) {
-  const match = String(value ?? "").replace(/,/g, "").match(/\d+/);
-  return match ? Math.max(0, Number(match[0])) : 0;
-}
-
 function failure(error: unknown) {
-  if (error instanceof ScheduleValidationError) {
+  if (error instanceof ScheduleValidationError || error instanceof ScheduleSheetError) {
     return NextResponse.json({ error: "invalid_schedule", message: error.message }, { status: 400 });
   }
   const databaseError = error as ImportError;
@@ -66,7 +62,7 @@ function failure(error: unknown) {
   if (["ECONNREFUSED", "ENOTFOUND", "ETIMEDOUT", "ECONNRESET", "42P01"].includes(databaseError?.code ?? "")) {
     return NextResponse.json({ error: "database_unavailable", message: "데이터베이스 연결 또는 초기화 상태를 확인해 주세요." }, { status: 503 });
   }
-  return NextResponse.json({ error: "import_failed", message: "일정 저장 중 오류가 발생했습니다. 엑셀의 날짜와 시간 형식을 확인해 주세요." }, { status: 500 });
+  return NextResponse.json({ error: "import_failed", message: "일정 저장 중 오류가 발생했습니다. 엑셀 내용을 확인해 주세요." }, { status: 500 });
 }
 
 export async function POST(request: Request) {
@@ -88,29 +84,22 @@ export async function POST(request: Request) {
     const raw = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: null });
     const titleYear = String(raw[0]?.[0] ?? "").match(/(20\d{2})\s*학년도/);
     const defaultYear = titleYear ? Number(titleYear[1]) : new Date().getFullYear();
-    const headerRowIndex = raw.findIndex((row, index) => index > 0 && Array.isArray(row) && String(row[0] ?? "").trim() === "일자");
-    const dataStartIndex = headerRowIndex >= 0 ? headerRowIndex + 1 : 1;
-    const sourceRows = raw.slice(dataStartIndex).filter((row) => Array.isArray(row) && row[3]);
-    if (!sourceRows.length) return NextResponse.json({ error: "empty_file", message: "가져올 반 일정이 없습니다." }, { status: 400 });
+    const sheetData = readScheduleSheet(raw);
 
-    let carriedDate: unknown = null;
-    const rows = sourceRows.map((row, index) => {
-      if (row[0] !== null && String(row[0]).trim() !== "") carriedDate = row[0];
-      const scheduledAt = koreaDateTime(carriedDate, row[1], defaultYear);
-      const scheduledEndAt = koreaDateTime(carriedDate, row[2], defaultYear);
-      const instructorNames = row.slice(5, 9).filter(Boolean).map((name) => String(name).trim()).filter(Boolean);
-      const eligibleCount = eligibleCountFromValue(row[9]);
-      if (!scheduledAt || !scheduledEndAt || scheduledEndAt <= scheduledAt || !String(row[4] ?? "").trim() || instructorNames.length < 1) {
-        throw new ScheduleValidationError(`${index + dataStartIndex + 1}행의 일자, 시간, 강의실 또는 강사를 확인해 주세요.`);
+    // 일자·시작·종료시간은 선택 항목이다. 비어 있으면 저장하지 않고, 적혀 있으면 형식을 확인한다.
+    const rows = sheetData.rows.map((row) => {
+      const hasTime = Boolean(String(row.start ?? "").trim() || String(row.end ?? "").trim());
+      const scheduledAt = hasTime ? koreaDateTime(row.date, row.start, defaultYear) : null;
+      const scheduledEndAt = hasTime ? koreaDateTime(row.date, row.end, defaultYear) : null;
+      if (hasTime && (!scheduledAt || !scheduledEndAt || scheduledEndAt <= scheduledAt)) {
+        throw new ScheduleValidationError(`${row.line}행(${row.classCode}반)의 일자와 시간을 확인하거나, 시간 칸을 비워 주세요.`);
       }
-      return { classCode: String(row[3]).trim(), room: String(row[4]).trim(), scheduledAt, scheduledEndAt, instructorNames, eligibleCount };
+      return { classCode: row.classCode, room: row.room, scheduledAt, scheduledEndAt, instructorNames: row.instructors, eligibleCount: row.target };
     });
 
     const db = getDb();
     const term = await getActiveTerm(db);
     if (!term) return NextResponse.json({ error: "no_active_term", message: "운영 학기가 없습니다. 학기 관리에서 먼저 학기를 만들어 주세요." }, { status: 409 });
-    const duplicateCode = rows.find((row, index) => rows.findIndex((other) => other.classCode === row.classCode) !== index);
-    if (duplicateCode) throw new ScheduleValidationError(`${duplicateCode.classCode}반이 엑셀에 두 번 이상 있습니다.`);
 
     await db.transaction(async (tx) => {
       for (const row of rows) {

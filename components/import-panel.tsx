@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { CheckCircle2, FileSpreadsheet, UploadCloud } from "lucide-react";
 import * as XLSX from "xlsx";
+import { ScheduleSheetError, readScheduleSheet } from "@/lib/schedule-sheet";
 
-type Preview = { date: string; start: string; end: string; classCode: string; room: string; instructors: string[]; target: number };
+type Preview = { time: string; classCode: string; room: string; instructors: string[]; target: number };
 
 export function ImportPanel({ termName }: { termName: string }) {
   const [rows, setRows] = useState<Preview[]>([]);
@@ -19,15 +20,12 @@ export function ImportPanel({ termName }: { termName: string }) {
     try {
       const book = XLSX.read(await selected.arrayBuffer(), { type: "array", cellDates: false });
       const raw = XLSX.utils.sheet_to_json<unknown[]>(book.Sheets[book.SheetNames[0]], { header: 1, defval: null });
-      const headerRowIndex = raw.findIndex((r, index) => index > 0 && Array.isArray(r) && String(r[0] ?? "").trim() === "일자");
-      const dataStartIndex = headerRowIndex >= 0 ? headerRowIndex + 1 : 1;
-      const parsed = raw.slice(dataStartIndex).filter((r) => Array.isArray(r) && r[3]).map((r: unknown[]) => ({
-        date: String(r[0] ?? ""), start: formatTime(r[1]), end: formatTime(r[2]), classCode: String(r[3]), room: String(r[4]),
-        instructors: r.slice(5, 9).filter(Boolean).map(String), target: Number(String(r[9] ?? "").replace(/[^0-9]/g, "")) || 0,
-      }));
-      if (!parsed.length) throw new Error();
-      setRows(parsed);
-    } catch { setError("필수 열(일자, 시작시간, 종료시간, 반, 강의실, 강사 1~4)을 확인해 주세요."); setRows([]); }
+      const sheet = readScheduleSheet(raw);
+      setRows(sheet.rows.map((row) => ({
+        time: row.start || row.end ? `${formatDate(row.date)} ${formatTime(row.start)}–${formatTime(row.end)}`.trim() : "",
+        classCode: row.classCode, room: row.room, instructors: row.instructors, target: row.target,
+      })));
+    } catch (sheetError) { setError(sheetError instanceof ScheduleSheetError ? sheetError.message : "엑셀 파일을 읽지 못했습니다. 강의평가 양식(분반, 강의실, 강사1~4, 설문인원)을 확인해 주세요."); setRows([]); }
   }
 
   async function upload() {
@@ -51,12 +49,18 @@ export function ImportPanel({ termName }: { termName: string }) {
     {error && <div className="error" style={{ marginTop: 14 }}>{error}</div>}
     {complete && <div style={{ marginTop: 14, padding: 12, borderRadius: 10, background: "#e9f5ef", color: "#1a6b50", fontSize: 13 }}>{termName}에 {rows.length}개 반을 가져왔습니다.</div>}
     {rows.length > 0 && <>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "20px 0 12px" }}><div style={{ display: "flex", gap: 9, alignItems: "center" }}><FileSpreadsheet size={20} color="#1f7d5c"/><div><strong>{name}</strong><div style={{ fontSize: 11, color: "#5b6b84" }}>{rows.length}개 반 · 형식 검증 완료</div></div></div><span className="status NORMAL"><CheckCircle2 size={12}/> 가져오기 준비</span></div>
-      <div className="table-card" style={{ border: "1px solid #e3e9f2", borderRadius: 14, maxHeight: 420, overflow: "auto" }}><table className="data-table"><thead><tr><th>일자</th><th>시간</th><th>반</th><th>강의실</th><th>강사</th><th>대상</th></tr></thead><tbody>{rows.slice(0, 15).map((r, i) => <tr key={i}><td>{r.date || "앞 행과 동일"}</td><td>{r.start}–{r.end}</td><td>{r.classCode}반</td><td>{r.room}</td><td>{r.instructors.join(", ")}</td><td>{r.target ? `${r.target}명` : "미입력"}</td></tr>)}</tbody></table></div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "20px 0 12px" }}><div style={{ display: "flex", gap: 9, alignItems: "center" }}><FileSpreadsheet size={20} color="#1f7d5c"/><div><strong>{name}</strong><div style={{ fontSize: 11, color: "#5b6b84" }}>{rows.length}개 반 · 형식 검증 완료{rows.some((r) => !r.target) ? " · 설문인원이 비어 있는 반이 있습니다" : ""}</div></div></div><span className="status NORMAL"><CheckCircle2 size={12}/> 가져오기 준비</span></div>
+      <div className="table-card" style={{ border: "1px solid #e3e9f2", borderRadius: 14, maxHeight: 420, overflow: "auto" }}><table className="data-table"><thead><tr>{rows.some((r) => r.time) && <th>시간</th>}<th>분반</th><th>강의실</th><th>강사</th><th>설문인원</th></tr></thead><tbody>{rows.slice(0, 15).map((r, i) => <tr key={i}>{rows.some((x) => x.time) && <td>{r.time || "–"}</td>}<td>{r.classCode}반</td><td>{r.room}</td><td>{r.instructors.join(", ")}</td><td>{r.target ? `${r.target}명` : "미입력"}</td></tr>)}</tbody></table></div>
       {rows.length > 15 && <div style={{ fontSize: 11, color: "#5b6b84", marginTop: 8 }}>외 {rows.length - 15}개 반</div>}
       <button className="btn btn-primary" disabled={uploading || complete} onClick={upload} style={{ marginTop: 18, width: "100%", opacity: uploading || complete ? 0.6 : 1 }}>{uploading ? "가져오는 중…" : complete ? "가져오기 완료" : `${termName}로 가져오기`}</button>
     </>}
   </div>;
+}
+
+function formatDate(value: unknown) {
+  if (value === null || value === undefined || value === "") return "";
+  if (typeof value === "number") { const parsed = XLSX.SSF.parse_date_code(value); return parsed ? `${parsed.m}/${parsed.d}` : ""; }
+  return String(value);
 }
 
 function formatTime(value: unknown) {
