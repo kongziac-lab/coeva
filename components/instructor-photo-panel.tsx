@@ -8,6 +8,8 @@ type BatchRow = { key: string; file: File; instructorId: string; match: "exact" 
 
 const allowedTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 const maxFileSize = 1_500_000;
+const UPLOAD_TIMEOUT_MS = 45_000;
+const PARALLEL_UPLOADS = 3;
 
 function normalize(value: string | null | undefined) {
   return (value ?? "").normalize("NFKC").toLowerCase().replace(/\.[^.]+$/, "").replace(/(강사|선생님|teacher|instructor)/gi, "").replace(/[^0-9a-z가-힣]/g, "");
@@ -26,6 +28,7 @@ export function InstructorPhotoPanel({ initialInstructors }: { initialInstructor
   const [batchRows, setBatchRows] = useState<BatchRow[]>([]);
   const [batchRunning, setBatchRunning] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
 
   async function upload(event: FormEvent<HTMLFormElement>, id: string) {
     event.preventDefault();
@@ -75,33 +78,49 @@ export function InstructorPhotoPanel({ initialInstructors }: { initialInstructor
 
   async function uploadBatch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const pending = batchRows.filter((row) => row.status !== "done");
     const targets = new Map<string, number>();
-    for (const row of batchRows) if (row.instructorId) targets.set(row.instructorId, (targets.get(row.instructorId) ?? 0) + 1);
-    const hasInvalid = batchRows.some((row) => !row.instructorId || row.status === "error") || Array.from(targets.values()).some((count) => count > 1);
+    for (const row of pending) if (row.instructorId) targets.set(row.instructorId, (targets.get(row.instructorId) ?? 0) + 1);
+    const hasInvalid = pending.some((row) => !row.instructorId) || Array.from(targets.values()).some((count) => count > 1);
     if (hasInvalid) { setError("각 파일의 대상 강사를 선택하고 중복 대상을 확인해 주세요."); return; }
+    if (!pending.length) return;
 
-    setBatchRunning(true); setError("");
-    for (const row of batchRows) {
-      setBatchRows((rows) => rows.map((item) => item.key === row.key ? { ...item, status: "uploading" } : item));
+    setBatchRunning(true); setError(""); setNotice("");
+    let failed = 0;
+    // 한 장씩 기다리면 오래 걸리므로 3장씩 동시에 올리고, 응답이 없는 요청은 45초 뒤 실패로 넘긴다.
+    async function uploadOne(row: BatchRow) {
+      setBatchRows((rows) => rows.map((item) => item.key === row.key ? { ...item, status: "uploading", error: undefined } : item));
+      const controller = new AbortController();
+      const timer = window.setTimeout(() => controller.abort(), UPLOAD_TIMEOUT_MS);
       try {
         const formData = new FormData(); formData.append("photo", row.file);
-        const response = await fetch(`/api/admin/instructors/${row.instructorId}/photo`, { method: "POST", body: formData });
-        const body = await response.json() as { ok?: boolean; error?: string };
+        const response = await fetch(`/api/admin/instructors/${row.instructorId}/photo`, { method: "POST", body: formData, signal: controller.signal });
+        const body = await response.json().catch(() => ({})) as { ok?: boolean; error?: string };
         if (!response.ok || !body.ok) throw new Error(body.error ?? "등록에 실패했습니다.");
         setItems((current) => current.map((item) => item.id === row.instructorId ? { ...item, photoUrl: `/api/instructors/${row.instructorId}/photo?v=${Date.now()}` } : item));
         setBatchRows((rows) => rows.map((item) => item.key === row.key ? { ...item, status: "done" } : item));
       } catch (uploadError) {
-        setBatchRows((rows) => rows.map((item) => item.key === row.key ? { ...item, status: "error", error: uploadError instanceof Error ? uploadError.message : "등록에 실패했습니다." } : item));
-      }
+        failed += 1;
+        const message = controller.signal.aborted ? "응답이 없어 중단했습니다. 다시 시도해 주세요." : uploadError instanceof Error ? uploadError.message : "등록에 실패했습니다.";
+        setBatchRows((rows) => rows.map((item) => item.key === row.key ? { ...item, status: "error", error: message } : item));
+      } finally { window.clearTimeout(timer); }
     }
+    const queue = [...pending];
+    await Promise.all(Array.from({ length: Math.min(PARALLEL_UPLOADS, queue.length) }, async () => {
+      for (let row = queue.shift(); row; row = queue.shift()) await uploadOne(row);
+    }));
     setBatchRunning(false);
+    setNotice(failed ? `${pending.length}장 중 ${pending.length - failed}장을 등록했습니다. 실패한 ${failed}장은 버튼을 다시 누르면 그 사진만 다시 올립니다.` : `${pending.length}장을 모두 등록했습니다.`);
   }
 
   if (items.length === 0) return <div className="card empty-state"><UserRound size={30} /><h2>등록된 강사가 없습니다</h2><p>먼저 강의평가 일정 엑셀을 가져오면 강사 명단이 생성됩니다.</p></div>;
 
   const completedCount = batchRows.filter((row) => row.status === "done").length;
+  const failedCount = batchRows.filter((row) => row.status === "error" && row.instructorId).length;
+  const progress = batchRows.length ? Math.round((completedCount / batchRows.length) * 100) : 0;
   return <>
     {error && <div className="error instructor-error" role="alert">{error}</div>}
+    {notice && <div className="terms-notice instructor-error" role="status"><CheckCircle2 size={15} />{notice}</div>}
     <section className="card batch-photo-card">
       <div className="batch-photo-heading"><div><h2><ImagePlus size={20} />사진 일괄등록</h2><p>파일명을 강사명 또는 강사번호로 저장하면 자동으로 연결됩니다. 예: 박현진.jpg</p></div><span className="batch-count">{completedCount}/{batchRows.length || 0}</span></div>
       <form className="batch-photo-form" onSubmit={uploadBatch}>
@@ -109,9 +128,10 @@ export function InstructorPhotoPanel({ initialInstructors }: { initialInstructor
         {batchRows.length > 0 && <div className="batch-file-list">{batchRows.map((row) => <div className={`batch-file-row ${row.status}`} key={row.key}>
           <span className="batch-file-name">{row.file.name}</span>
           <select value={row.instructorId} onChange={(event) => updateBatchTarget(row.key, event.target.value)} aria-label={`${row.file.name} 대상 강사`} disabled={batchRunning || row.status === "done"}><option value="">대상 강사 선택</option>{items.map((item) => <option value={item.id} key={item.id}>{item.name}{item.externalId ? ` (${item.externalId})` : ""}</option>)}</select>
-          <span className="batch-file-status">{row.status === "done" ? <><CheckCircle2 size={15} />등록 완료</> : row.error ?? (row.match === "exact" ? "자동 일치" : row.match === "suggested" ? "유사 일치" : "대상 선택 필요")}</span>
+          <span className="batch-file-status">{row.status === "done" ? <><CheckCircle2 size={15} />등록 완료</> : row.status === "uploading" ? "올리는 중…" : row.error ?? (row.match === "exact" ? "자동 일치" : row.match === "suggested" ? "유사 일치" : "대상 선택 필요")}</span>
         </div>)}</div>}
-        <button className="btn btn-primary batch-submit" type="submit" disabled={batchRunning || batchRows.length === 0}>{batchRunning ? "일괄 등록 중..." : "선택한 사진 일괄 등록"}</button>
+        {(batchRunning || completedCount > 0) && <div className="batch-progress" role="progressbar" aria-valuemin={0} aria-valuemax={batchRows.length} aria-valuenow={completedCount} aria-label="일괄 등록 진행률"><span style={{ width: `${progress}%` }} /></div>}
+        <button className="btn btn-primary batch-submit" type="submit" disabled={batchRunning || batchRows.length === 0 || completedCount === batchRows.length}>{batchRunning ? `일괄 등록 중… ${completedCount} / ${batchRows.length}` : completedCount === batchRows.length && batchRows.length > 0 ? "모두 등록 완료" : failedCount > 0 ? `실패한 ${failedCount}장 다시 등록` : "선택한 사진 일괄 등록"}</button>
       </form>
     </section>
     <div className="instructor-photo-grid">

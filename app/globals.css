@@ -351,6 +351,10 @@ button:focus-visible, a:focus-visible { outline: 2px solid rgba(13, 49, 104, .55
   .layout-single .qr-card-cta span { font-size: 16px; }
 }
 
+/* ── Batch photo upload progress ── */
+.batch-progress { height: 8px; border-radius: 99px; background: #e6ecf4; overflow: hidden; margin: 12px 0 0; }
+.batch-progress span { display: block; height: 100%; background: linear-gradient(90deg, #0d3168, #3a7bd5); transition: width .3s ease; }
+
 /* ── Term management ── */
 .term-badge { display: inline-flex; align-items: center; padding: 9px 12px; font-size: 13px; font-weight: 700; color: var(--navy); white-space: nowrap; }
 a.term-badge:hover { border-color: var(--blue-mid); background: var(--tint); }
