@@ -1,6 +1,6 @@
 import { CheckCircle2, ImageIcon, Languages, LockKeyhole } from "lucide-react";
 import { AdminShell } from "@/components/admin-shell";
-import { languageNames, locales } from "@/lib/i18n";
+import { languageNames, languageNamesKo, locales, reviewedLocales } from "@/lib/i18n";
 import { surveyQuestions } from "@/lib/survey-questions";
 
 export default function QuestionnairePage() {
@@ -13,7 +13,7 @@ export default function QuestionnairePage() {
         <div>{surveyQuestions.map((question, index) => <div key={question} className="questionnaire-row"><strong>{index + 1}</strong>{question}</div>)}</div>
       </div>
       <div className="questionnaire-side">
-        <div className="card questionnaire-info-card"><Languages size={25} color="#0d3168" /><h2>번역 현황</h2><p>브라우저 언어를 자동 감지하며 학생이 언제든 언어를 바꿀 수 있습니다.</p>{locales.map((locale) => <div key={locale} className="translation-row"><strong>{languageNames[locale]}</strong><span>검수본 적용</span></div>)}</div>
+        <div className="card questionnaire-info-card"><Languages size={25} color="#0d3168" /><h2>번역 현황</h2><p>브라우저 언어를 자동 감지하며 학생이 언제든 언어를 바꿀 수 있습니다.</p>{locales.map((locale) => <div key={locale} className="translation-row"><strong>{languageNamesKo[locale]} <small>{languageNames[locale]}</small></strong>{reviewedLocales.includes(locale) ? <span>검수본 적용</span> : <span className="translation-pending">검수 필요</span>}</div>)}</div>
         <div className="card questionnaire-info-card"><ImageIcon size={25} color="#0d3168" /><h2>강사 사진</h2><p>사진은 강사별 질문 상단에 표시됩니다. ‘강사 사진 관리’에서 등록하거나 변경할 수 있습니다.</p></div>
       </div>
     </section>

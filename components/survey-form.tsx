@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Check, LockKeyhole, UserRound, X } from "lucide-react";
-import { copy, languageNames, Locale, locales } from "@/lib/i18n";
+import { copy, languageNames, Locale, locales, normalizeLocale } from "@/lib/i18n";
 
 export type SurveyInstructor = { assignmentId: string; name: string; photoUrl: string | null };
 
@@ -36,8 +36,10 @@ export function SurveyForm({ classCode, room, instructors, token }: SurveyFormPr
   );
 
   useEffect(() => {
-    const detected = navigator.language.split("-")[0] as Locale;
-    if (locales.includes(detected)) setLocale(detected);
+    // 브라우저 선호 언어 중 지원하는 첫 언어를 고른다(없으면 한국어 유지).
+    const detected = (navigator.languages?.length ? navigator.languages : [navigator.language])
+      .find((language) => normalizeLocale(language) !== "ko" || language.toLowerCase().startsWith("ko"));
+    if (detected) setLocale(normalizeLocale(detected));
     if (!localStorage.getItem("coeva_device")) {
       localStorage.setItem("coeva_device", `${crypto.randomUUID()}${crypto.randomUUID()}`);
     }
@@ -127,7 +129,7 @@ export function SurveyForm({ classCode, room, instructors, token }: SurveyFormPr
   );
 
   if (done) return (
-    <main className="survey-page">
+    <main className="survey-page" lang={locale}>
       <div className="survey-shell">
         <div className="survey-top"><div className="survey-brand"><div className="brand-mark">K</div>K-강의평가</div>{languageSelect}</div>
         <div className="card done-card">
@@ -140,7 +142,7 @@ export function SurveyForm({ classCode, room, instructors, token }: SurveyFormPr
   );
 
   if (!started) return (
-    <main className="survey-page">
+    <main className="survey-page" lang={locale}>
       <div className="survey-shell">
         <div className="survey-top"><div className="survey-brand"><div className="brand-mark">K</div>K-강의평가</div>{languageSelect}</div>
         <div className="survey-intro"><h1>{t.title}</h1><p>{t.subtitle}</p></div>
@@ -158,7 +160,7 @@ export function SurveyForm({ classCode, room, instructors, token }: SurveyFormPr
 
   const instructor = instructors[step];
   return (
-    <main className="survey-page"><div className="survey-shell">
+    <main className="survey-page" lang={locale}><div className="survey-shell">
       <div className="survey-top"><div className="survey-brand"><div className="brand-mark">K</div>K-강의평가</div>{languageSelect}</div>
       <div className="survey-intro"><h1>{t.title}</h1><p>{t.subtitle}</p></div>
       <div className="step-track" aria-label={`${step + 1} / ${instructors.length}`}>{instructors.map((item, index) => <i key={item.assignmentId} className={index <= step ? "done" : ""} />)}</div>

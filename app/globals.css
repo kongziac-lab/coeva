@@ -270,6 +270,14 @@ button:focus-visible, a:focus-visible { outline: 2px solid rgba(13, 49, 104, .55
   .qr-modal-card img { width: min(84vw, 420px); aspect-ratio: 1/1; object-fit: contain; }
 }
 
+/* ── Survey languages with complex scripts ── */
+.survey-page:is([lang="my"], [lang="si"], [lang="ne"], [lang="th"]) { line-height: 1.7; }
+.survey-page:is([lang="my"], [lang="si"], [lang="ne"], [lang="th"]) :is(h1, h2, .teacher-name) { font-family: var(--sans); letter-spacing: 0; }
+.survey-page:is([lang="my"], [lang="th"]) .rating label small { word-break: normal; overflow-wrap: anywhere; }
+.survey-page:is([lang="my"], [lang="si"], [lang="ne"]) .rating label small { line-height: 1.45; }
+.translation-row small { color: var(--muted); font-weight: 500; margin-left: 6px; }
+.translation-row .translation-pending { color: #a0620d; }
+
 /* ── Session auto-close and reopen ── */
 .session-countdown { display: flex; align-items: center; justify-content: center; gap: 7px; margin: 0 0 12px; padding: 9px 12px; border-radius: 10px; background: var(--tint); color: var(--navy); font-size: 13px; }
 .session-countdown strong { font-family: var(--mono); font-size: 15px; letter-spacing: .5px; }
