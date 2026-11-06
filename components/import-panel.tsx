@@ -6,7 +6,7 @@ import * as XLSX from "xlsx";
 
 type Preview = { date: string; start: string; end: string; classCode: string; room: string; instructors: string[]; target: number };
 
-export function ImportPanel() {
+export function ImportPanel({ termName }: { termName: string }) {
   const [rows, setRows] = useState<Preview[]>([]);
   const [name, setName] = useState("");
   const [error, setError] = useState("");
@@ -49,12 +49,12 @@ export function ImportPanel() {
       <input type="file" accept=".xlsx,.xls" hidden onChange={(e) => e.target.files?.[0] && select(e.target.files[0])}/>
     </label>
     {error && <div className="error" style={{ marginTop: 14 }}>{error}</div>}
-    {complete && <div style={{ marginTop: 14, padding: 12, borderRadius: 10, background: "#e9f5ef", color: "#1a6b50", fontSize: 13 }}>{rows.length}개 반을 성공적으로 가져왔습니다.</div>}
+    {complete && <div style={{ marginTop: 14, padding: 12, borderRadius: 10, background: "#e9f5ef", color: "#1a6b50", fontSize: 13 }}>{termName}에 {rows.length}개 반을 가져왔습니다.</div>}
     {rows.length > 0 && <>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "20px 0 12px" }}><div style={{ display: "flex", gap: 9, alignItems: "center" }}><FileSpreadsheet size={20} color="#1f7d5c"/><div><strong>{name}</strong><div style={{ fontSize: 11, color: "#5b6b84" }}>{rows.length}개 반 · 형식 검증 완료</div></div></div><span className="status NORMAL"><CheckCircle2 size={12}/> 가져오기 준비</span></div>
       <div className="table-card" style={{ border: "1px solid #e3e9f2", borderRadius: 14, maxHeight: 420, overflow: "auto" }}><table className="data-table"><thead><tr><th>일자</th><th>시간</th><th>반</th><th>강의실</th><th>강사</th><th>대상</th></tr></thead><tbody>{rows.slice(0, 15).map((r, i) => <tr key={i}><td>{r.date || "앞 행과 동일"}</td><td>{r.start}–{r.end}</td><td>{r.classCode}반</td><td>{r.room}</td><td>{r.instructors.join(", ")}</td><td>{r.target ? `${r.target}명` : "미입력"}</td></tr>)}</tbody></table></div>
       {rows.length > 15 && <div style={{ fontSize: 11, color: "#5b6b84", marginTop: 8 }}>외 {rows.length - 15}개 반</div>}
-      <button className="btn btn-primary" disabled={uploading || complete} onClick={upload} style={{ marginTop: 18, width: "100%", opacity: uploading || complete ? 0.6 : 1 }}>{uploading ? "가져오는 중…" : complete ? "가져오기 완료" : "2026년 여름학기로 가져오기"}</button>
+      <button className="btn btn-primary" disabled={uploading || complete} onClick={upload} style={{ marginTop: 18, width: "100%", opacity: uploading || complete ? 0.6 : 1 }}>{uploading ? "가져오는 중…" : complete ? "가져오기 완료" : `${termName}로 가져오기`}</button>
     </>}
   </div>;
 }

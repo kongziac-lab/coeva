@@ -270,6 +270,20 @@ button:focus-visible, a:focus-visible { outline: 2px solid rgba(13, 49, 104, .55
   .qr-modal-card img { width: min(84vw, 420px); aspect-ratio: 1/1; object-fit: contain; }
 }
 
+/* ── Term management ── */
+.term-badge { display: inline-flex; align-items: center; padding: 9px 12px; font-size: 13px; font-weight: 700; color: var(--navy); white-space: nowrap; }
+a.term-badge:hover { border-color: var(--blue-mid); background: var(--tint); }
+.terms-layout { display: grid; gap: 18px; max-width: 1080px; }
+.terms-notice { display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-radius: 10px; background: #e9f5ef; color: #1a6b50; font-size: 13px; }
+.terms-form { padding: 22px 24px; display: grid; gap: 14px; }
+.terms-form-head { display: flex; align-items: center; gap: 9px; }
+.terms-form-head h2 { margin: 0; font-size: 17px; }
+.terms-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 16px; }
+.terms-form .btn { justify-self: start; }
+.terms-help { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.results-term-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+@media (max-width: 760px) { .terms-form-grid { grid-template-columns: 1fr; } .terms-layout .data-table { min-width: 640px; } }
+
 /* ── Session reset controls ── */
 .session-row-actions { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
 .session-row-actions .btn { min-height: 34px; padding: 7px 10px; font-size: 11px; }

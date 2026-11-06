@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import * as XLSX from "xlsx";
-import { eq } from "drizzle-orm";
-import { auditLogs, classes, instructors, teachingAssignments, terms } from "@/db/schema";
+import { and, eq, inArray, notInArray } from "drizzle-orm";
+import { anonymousResponses, auditLogs, classes, instructors, teachingAssignments } from "@/db/schema";
 import { getAdminSession } from "@/lib/auth";
 import { getDb } from "@/lib/db";
+import { getActiveTerm } from "@/lib/terms";
 
 type ImportError = Error & { code?: string };
 
@@ -106,16 +107,10 @@ export async function POST(request: Request) {
     });
 
     const db = getDb();
-    let [term] = await db.select().from(terms).where(eq(terms.active, true)).limit(1);
-    if (!term) {
-      [term] = await db.insert(terms).values({
-        code: "2026-SUMMER",
-        name: "2026년 여름학기",
-        startsAt: new Date("2026-06-01T00:00:00+09:00"),
-        endsAt: new Date("2026-08-31T23:59:59+09:00"),
-        active: true,
-      }).returning();
-    }
+    const term = await getActiveTerm(db);
+    if (!term) return NextResponse.json({ error: "no_active_term", message: "운영 학기가 없습니다. 학기 관리에서 먼저 학기를 만들어 주세요." }, { status: 409 });
+    const duplicateCode = rows.find((row, index) => rows.findIndex((other) => other.classCode === row.classCode) !== index);
+    if (duplicateCode) throw new ScheduleValidationError(`${duplicateCode.classCode}반이 엑셀에 두 번 이상 있습니다.`);
 
     await db.transaction(async (tx) => {
       for (const row of rows) {
@@ -131,15 +126,27 @@ export async function POST(request: Request) {
           set: { room: row.room, scheduledAt: row.scheduledAt, scheduledEndAt: row.scheduledEndAt, eligibleCount: row.eligibleCount },
         }).returning();
 
+        const instructorIds: string[] = [];
         for (const [position, name] of row.instructorNames.entries()) {
           let [instructor] = await tx.select().from(instructors).where(eq(instructors.name, name)).limit(1);
           if (!instructor) [instructor] = await tx.insert(instructors).values({ name }).returning();
-          await tx.insert(teachingAssignments).values({ classId: classRow.id, instructorId: instructor.id, position: position + 1 }).onConflictDoNothing();
+          instructorIds.push(instructor.id);
+          await tx.insert(teachingAssignments).values({ classId: classRow.id, instructorId: instructor.id, position: position + 1 })
+            .onConflictDoUpdate({ target: [teachingAssignments.classId, teachingAssignments.instructorId], set: { position: position + 1 } });
+        }
+        // 다시 가져온 엑셀에서 빠진 강사 배정은 지운다. 이미 응답이 있는 배정은 지울 수 없으므로 가져오기를 멈춘다.
+        const removed = await tx.select({ id: teachingAssignments.id }).from(teachingAssignments)
+          .where(and(eq(teachingAssignments.classId, classRow.id), notInArray(teachingAssignments.instructorId, instructorIds)));
+        if (removed.length) {
+          const removedIds = removed.map((item) => item.id);
+          const [answered] = await tx.select({ id: anonymousResponses.id }).from(anonymousResponses).where(inArray(anonymousResponses.assignmentId, removedIds)).limit(1);
+          if (answered) throw new ScheduleValidationError(`${row.classCode}반은 이미 평가 응답이 있어 강사 배정을 바꿀 수 없습니다.`);
+          await tx.delete(teachingAssignments).where(inArray(teachingAssignments.id, removedIds));
         }
       }
       await tx.insert(auditLogs).values({ action: "SCHEDULE_IMPORT", entityType: "term", entityId: term.id, detail: { filename: file.name, classes: rows.length, actor: admin.email } });
     });
-    return NextResponse.json({ ok: true, classes: rows.length });
+    return NextResponse.json({ ok: true, classes: rows.length, term: term.name });
   } catch (error) {
     return failure(error);
   }

@@ -1,4 +1,4 @@
-import { desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { classes, evaluationSessions, participation } from "@/db/schema";
 import { getDb } from "@/lib/db";
 import { decryptPublicToken } from "@/lib/security";
@@ -21,7 +21,7 @@ export function getPublicSurveyUrl(token: string, requestOrigin?: string) {
   return `${appUrl}/survey/${token}`;
 }
 
-export async function getSessionSnapshots(requestOrigin?: string): Promise<SessionSnapshot[]> {
+export async function getSessionSnapshots(requestOrigin?: string, termId?: string): Promise<SessionSnapshot[]> {
   const db = getDb();
   // 반마다 가장 최근 세션 하나만 읽는다(3초 폴링이라 전체 세션 이력을 매번 읽지 않는다).
   const latestSessions = await db.selectDistinctOn([evaluationSessions.classId], {
@@ -30,7 +30,10 @@ export async function getSessionSnapshots(requestOrigin?: string): Promise<Sessi
     targetCount: evaluationSessions.targetCount,
     status: evaluationSessions.status,
     tokenCiphertext: evaluationSessions.tokenCiphertext,
-  }).from(evaluationSessions).orderBy(evaluationSessions.classId, desc(evaluationSessions.createdAt));
+  }).from(evaluationSessions)
+    .innerJoin(classes, eq(evaluationSessions.classId, classes.id))
+    .where(termId ? eq(classes.termId, termId) : undefined)
+    .orderBy(evaluationSessions.classId, desc(evaluationSessions.createdAt));
   const sessionIds = latestSessions.map((session) => session.id);
   const participantRows = sessionIds.length
     ? await db.select({ sessionId: participation.sessionId, status: participation.status, lastSeenAt: participation.lastSeenAt }).from(participation).where(inArray(participation.sessionId, sessionIds))

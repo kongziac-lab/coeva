@@ -165,6 +165,7 @@ export function SessionOperatorPanel({ classes }: { classes: SessionClass[] }) {
       if (!response.ok || !result.id || !result.url) {
         if (result.error === "questionnaire_required") throw new Error("먼저 설문을 등록해 주세요.");
         if (result.error === "session_already_active") throw new Error("이미 진행 중인 평가가 있습니다. 잠시 후 상태가 갱신됩니다.");
+        if (result.error === "class_not_in_active_term") throw new Error("운영 학기가 바뀌었습니다. 화면을 새로고침해 주세요.");
         throw new Error("평가 세션을 시작하지 못했습니다.");
       }
       const qr = await QRCode.toDataURL(result.url, { width: 420, margin: 1, color: { dark: "#0d3168", light: "#ffffff" } });

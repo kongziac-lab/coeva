@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
-import { evaluationSessions, questionnaireVersions } from "@/db/schema";
+import { classes, evaluationSessions } from "@/db/schema";
 import { getDb } from "@/lib/db";
 import { createPublicToken, encryptPublicToken, hashToken } from "@/lib/security";
 import { getAdminSession } from "@/lib/auth";
 import { getPublicSurveyUrl, getSessionSnapshots, recalculateClassTerm } from "@/lib/session-monitor";
+import { ensureQuestionnaire, getActiveTerm, getTermQuestionnaireId } from "@/lib/terms";
 
 const startInput = z.object({ classId: z.uuid(), targetCount: z.number().int().positive(), durationMinutes: z.number().int().min(1).max(30).optional() });
 const restoreInput = z.object({ id: z.uuid(), token: z.string().min(20) });
@@ -19,12 +20,14 @@ export async function POST(request: Request) {
     const db = getDb();
     const [existing] = await db.select({ id: evaluationSessions.id }).from(evaluationSessions).where(and(eq(evaluationSessions.classId, parsed.data.classId), eq(evaluationSessions.status, "ACTIVE"))).limit(1);
     if (existing) return NextResponse.json({ error: "session_already_active" }, { status: 409 });
-    const [questionnaire] = await db.select({ id: questionnaireVersions.id }).from(questionnaireVersions).limit(1);
-    if (!questionnaire) return NextResponse.json({ error: "questionnaire_required" }, { status: 409 });
+    const [classRow] = await db.select({ termId: classes.termId }).from(classes).where(eq(classes.id, parsed.data.classId)).limit(1);
+    const term = await getActiveTerm(db);
+    if (!classRow || !term || classRow.termId !== term.id) return NextResponse.json({ error: "class_not_in_active_term" }, { status: 409 });
+    const questionnaireId = await getTermQuestionnaireId(term.id, db) ?? await ensureQuestionnaire(db, term.id);
     const token = createPublicToken();
     const [session] = await db.insert(evaluationSessions).values({
       classId: parsed.data.classId,
-      questionnaireId: questionnaire.id,
+      questionnaireId,
       tokenHash: hashToken(token),
       tokenCiphertext: encryptPublicToken(token),
       status: "ACTIVE",
@@ -58,7 +61,8 @@ export async function GET(request: Request) {
   const admin = await getAdminSession();
   if (!admin) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   try {
-    const sessions = await getSessionSnapshots(new URL(request.url).origin);
+    const term = await getActiveTerm();
+    const sessions = term ? await getSessionSnapshots(new URL(request.url).origin, term.id) : [];
     return NextResponse.json({ sessions }, { headers: { "cache-control": "no-store" } });
   } catch {
     return NextResponse.json({ error: "service_unavailable" }, { status: 503 });
