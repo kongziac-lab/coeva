@@ -1,13 +1,28 @@
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, lte } from "drizzle-orm";
 import { classes, evaluationSessions, participation } from "@/db/schema";
 import { getDb } from "@/lib/db";
 import { decryptPublicToken } from "@/lib/security";
 import { recalculateTermResults } from "@/lib/results";
 
+export { SESSION_OPEN_MINUTES, isSessionOpen, sessionDeadline } from "@/lib/session-window";
+
+// 마감 시각이 지난 진행 중 세션을 닫고, 해당 학기 결과를 다시 계산한다.
+export async function closeExpiredSessions() {
+  const db = getDb();
+  const closed = await db.update(evaluationSessions)
+    .set({ status: "CLOSED", closedAt: new Date() })
+    .where(and(eq(evaluationSessions.status, "ACTIVE"), isNotNull(evaluationSessions.expiresAt), lte(evaluationSessions.expiresAt, new Date())))
+    .returning({ classId: evaluationSessions.classId });
+  for (const classId of new Set(closed.map((row) => row.classId))) await recalculateClassTerm(classId);
+  return closed.length;
+}
+
 export type SessionSnapshot = {
   classId: string;
   sessionId: string;
   status: "ACTIVE" | "READY";
+  expiresAt: string | null;
+  reopenable: boolean;
   targetCount: number;
   connected: number;
   completed: number;
@@ -22,6 +37,7 @@ export function getPublicSurveyUrl(token: string, requestOrigin?: string) {
 }
 
 export async function getSessionSnapshots(requestOrigin?: string, termId?: string): Promise<SessionSnapshot[]> {
+  await closeExpiredSessions();
   const db = getDb();
   // 반마다 가장 최근 세션 하나만 읽는다(3초 폴링이라 전체 세션 이력을 매번 읽지 않는다).
   const latestSessions = await db.selectDistinctOn([evaluationSessions.classId], {
@@ -29,6 +45,7 @@ export async function getSessionSnapshots(requestOrigin?: string, termId?: strin
     classId: evaluationSessions.classId,
     targetCount: evaluationSessions.targetCount,
     status: evaluationSessions.status,
+    expiresAt: evaluationSessions.expiresAt,
     tokenCiphertext: evaluationSessions.tokenCiphertext,
   }).from(evaluationSessions)
     .innerJoin(classes, eq(evaluationSessions.classId, classes.id))
@@ -54,6 +71,8 @@ export async function getSessionSnapshots(requestOrigin?: string, termId?: strin
       classId: session.classId,
       sessionId: session.id,
       status: session.status === "ACTIVE" ? "ACTIVE" : "READY",
+      expiresAt: session.status === "ACTIVE" ? session.expiresAt?.toISOString() ?? null : null,
+      reopenable: session.status === "CLOSED" && Boolean(session.tokenCiphertext),
       targetCount: session.targetCount,
       connected,
       completed,

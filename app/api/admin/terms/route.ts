@@ -5,6 +5,7 @@ import { classes, evaluationSessions, terms } from "@/db/schema";
 import { auditAdminAction, requireSystemAdmin } from "@/lib/admin-access";
 import { getDb } from "@/lib/db";
 import { activateTerm, ensureQuestionnaire, listTerms } from "@/lib/terms";
+import { closeExpiredSessions } from "@/lib/session-monitor";
 
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const createSchema = z.object({
@@ -21,6 +22,7 @@ const kstEnd = (value: string) => new Date(`${value}T23:59:59+09:00`);
 
 const ACTIVE_SESSION_MESSAGE = "진행 중인 현장 평가가 있습니다. 모두 종료한 뒤 학기를 전환해 주세요.";
 async function hasActiveSession() {
+  await closeExpiredSessions();
   const [row] = await getDb().select({ id: evaluationSessions.id }).from(evaluationSessions).where(eq(evaluationSessions.status, "ACTIVE")).limit(1);
   return Boolean(row);
 }

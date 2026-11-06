@@ -270,6 +270,15 @@ button:focus-visible, a:focus-visible { outline: 2px solid rgba(13, 49, 104, .55
   .qr-modal-card img { width: min(84vw, 420px); aspect-ratio: 1/1; object-fit: contain; }
 }
 
+/* ── Session auto-close and reopen ── */
+.session-countdown { display: flex; align-items: center; justify-content: center; gap: 7px; margin: 0 0 12px; padding: 9px 12px; border-radius: 10px; background: var(--tint); color: var(--navy); font-size: 13px; }
+.session-countdown strong { font-family: var(--mono); font-size: 15px; letter-spacing: .5px; }
+.session-countdown.urgent { background: var(--red-soft); color: var(--crimson-deep); }
+.session-reopen-help { color: #5b6b84; font-size: 12px; line-height: 1.55; text-align: center; }
+.session-new-qr { width: 100%; margin-top: 4px; }
+.session-new-qr summary { cursor: pointer; color: #5b6b84; font-size: 12px; text-align: center; padding: 6px 0; }
+.session-new-qr[open] summary { margin-bottom: 4px; }
+
 /* ── Term management ── */
 .term-badge { display: inline-flex; align-items: center; padding: 9px 12px; font-size: 13px; font-weight: 700; color: var(--navy); white-space: nowrap; }
 a.term-badge:hover { border-color: var(--blue-mid); background: var(--tint); }

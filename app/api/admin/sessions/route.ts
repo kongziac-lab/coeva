@@ -5,7 +5,7 @@ import { classes, evaluationSessions } from "@/db/schema";
 import { getDb } from "@/lib/db";
 import { createPublicToken, encryptPublicToken, hashToken } from "@/lib/security";
 import { getAdminSession } from "@/lib/auth";
-import { getPublicSurveyUrl, getSessionSnapshots, recalculateClassTerm } from "@/lib/session-monitor";
+import { closeExpiredSessions, getPublicSurveyUrl, getSessionSnapshots, recalculateClassTerm, sessionDeadline } from "@/lib/session-monitor";
 import { ensureQuestionnaire, getActiveTerm, getTermQuestionnaireId } from "@/lib/terms";
 
 const startInput = z.object({ classId: z.uuid(), targetCount: z.number().int().positive(), durationMinutes: z.number().int().min(1).max(30).optional() });
@@ -18,6 +18,7 @@ export async function POST(request: Request) {
   if (!parsed.success) return NextResponse.json({ error: "invalid_request" }, { status: 400 });
   try {
     const db = getDb();
+    await closeExpiredSessions();
     const [existing] = await db.select({ id: evaluationSessions.id }).from(evaluationSessions).where(and(eq(evaluationSessions.classId, parsed.data.classId), eq(evaluationSessions.status, "ACTIVE"))).limit(1);
     if (existing) return NextResponse.json({ error: "session_already_active" }, { status: 409 });
     const [classRow] = await db.select({ termId: classes.termId }).from(classes).where(eq(classes.id, parsed.data.classId)).limit(1);
@@ -33,9 +34,9 @@ export async function POST(request: Request) {
       status: "ACTIVE",
       targetCount: parsed.data.targetCount,
       opensAt: new Date(),
-      expiresAt: null,
-    }).returning({ id: evaluationSessions.id });
-    return NextResponse.json({ id: session.id, classId: parsed.data.classId, url: getPublicSurveyUrl(token, new URL(request.url).origin), targetCount: parsed.data.targetCount, connected: 0, completed: 0, remaining: parsed.data.targetCount, status: "ACTIVE" });
+      expiresAt: sessionDeadline(),
+    }).returning({ id: evaluationSessions.id, expiresAt: evaluationSessions.expiresAt });
+    return NextResponse.json({ id: session.id, classId: parsed.data.classId, url: getPublicSurveyUrl(token, new URL(request.url).origin), targetCount: parsed.data.targetCount, connected: 0, completed: 0, remaining: parsed.data.targetCount, status: "ACTIVE", expiresAt: session.expiresAt?.toISOString() ?? null });
   } catch {
     return NextResponse.json({ error: "service_unavailable" }, { status: 503 });
   }
