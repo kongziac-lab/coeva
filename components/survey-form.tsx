@@ -65,7 +65,7 @@ export function SurveyForm({ classCode, room, instructors, token }: SurveyFormPr
     try {
       const response = await fetch(`/api/survey/${encodeURIComponent(token)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ deviceId: localStorage.getItem("coeva_device") }) });
       const body = await response.json() as { error?: string };
-      if (!response.ok) throw new Error(body.error === "already_submitted" ? t.duplicateError : body.error === "session_unavailable" ? t.closedError : t.submitError);
+      if (!response.ok) throw new Error(body.error === "already_submitted" ? t.duplicateError : body.error === "already_submitted_other_class" ? t.otherClassError : body.error === "session_unavailable" ? t.closedError : t.submitError);
       setStarted(true);
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : t.submitError);
@@ -110,7 +110,7 @@ export function SurveyForm({ classCode, room, instructors, token }: SurveyFormPr
         }),
       });
       const body = await response.json() as { error?: string; receipt?: string };
-      if (!response.ok) throw new Error(body.error === "already_submitted" ? t.duplicateError : body.error === "session_unavailable" ? t.closedError : t.submitError);
+      if (!response.ok) throw new Error(body.error === "already_submitted" ? t.duplicateError : body.error === "already_submitted_other_class" ? t.otherClassError : body.error === "session_unavailable" ? t.closedError : t.submitError);
       setReceipt(body.receipt ?? fallbackReceipt);
       setDone(true);
     } catch (error) {
