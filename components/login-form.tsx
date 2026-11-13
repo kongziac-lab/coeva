@@ -45,7 +45,7 @@ export function LoginForm({ returnTo, mfaRequired: initialMfa }: { returnTo: str
     </> : <>
       <h2 style={{ margin: "0 0 6px", fontSize: 20 }}>Google Authenticator 인증</h2>
       <p style={{ margin: "0 0 18px", color: "#5b6b84", fontSize: 13 }}>앱에 표시된 6자리 코드를 입력하세요.</p>
-      <form onSubmit={submitTotp}><div className="field"><label htmlFor="totp-code">인증 코드</label><input id="totp-code" ref={codeRef} type="text" inputMode="numeric" pattern="\d{6}" maxLength={6} value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, ""))} required /></div>{error && <div className="error">{error}</div>}<button className="btn btn-primary" disabled={loading || code.length !== 6}>{loading ? "확인 중…" : "인증하기"}</button></form>
+      <form onSubmit={submitTotp}><div className="field"><label htmlFor="totp-code">인증 코드</label><input id="totp-code" ref={codeRef} type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" value={code} onChange={(event) => setCode(event.target.value.replace(/[^0-9]/g, "").slice(0, 6))} placeholder="6자리 숫자" required /></div>{error && <div className="error">{error}</div>}<button className="btn btn-primary" disabled={loading || code.length !== 6}>{loading ? "확인 중…" : "인증하기"}</button></form>
     </>}
   </div>;
 }
