@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import { copy, detectBrowserLocale, locales, normalizeLocale } from "./i18n";
 
 describe("survey translations", () => {
-  it("provides seven questions and five scale labels for every supported language", () => {
+  it("provides eight questions and five scale labels for every supported language", () => {
     for (const locale of locales) {
-      expect(copy[locale].questions).toHaveLength(7);
+      expect(copy[locale].questions).toHaveLength(8);
       expect(copy[locale].scale).toHaveLength(5);
     }
   });

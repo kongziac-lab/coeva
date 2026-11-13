@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Check, LockKeyhole, UserRound, X } from "lucide-react";
 import { copy, detectBrowserLocale, languageNames, Locale, locales } from "@/lib/i18n";
+import { QUESTION_COUNT } from "@/lib/survey-questions";
 
 export type SurveyInstructor = { assignmentId: string; name: string; photoUrl: string | null };
 
@@ -28,7 +29,7 @@ export function SurveyForm({ classCode, room, instructors, token }: SurveyFormPr
   const [photoZoom, setPhotoZoom] = useState(false);
 
   const t = copy[locale];
-  const current = answers[step] ?? Array(7).fill(0);
+  const current = answers[step] ?? Array(QUESTION_COUNT).fill(0);
   const valid = current.every(Boolean);
   const fallbackReceipt = useMemo(
     () => `KMLI-${new Date().getFullYear()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
@@ -55,7 +56,7 @@ export function SurveyForm({ classCode, room, instructors, token }: SurveyFormPr
   function setRating(question: number, value: number) {
     setAnswers((all) => ({
       ...all,
-      [step]: (all[step] ?? Array(7).fill(0)).map((answer, index) => index === question ? value : answer),
+      [step]: (all[step] ?? Array(QUESTION_COUNT).fill(0)).map((answer, index) => index === question ? value : answer),
     }));
   }
 

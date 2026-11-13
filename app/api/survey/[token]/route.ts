@@ -5,10 +5,11 @@ import { anonymousResponses, classes, evaluationSessions, participation, questio
 import { getDb } from "@/lib/db";
 import { hashSubject, hashToken } from "@/lib/security";
 import { getSurveyPayload } from "@/lib/survey-session";
+import { QUESTION_COUNT } from "@/lib/survey-questions";
 import { isInSubmitGrace, isSessionOpen } from "@/lib/session-window";
 import { recalculateClassTerm } from "@/lib/session-monitor";
 
-const answerSet = z.object({ assignmentId: z.uuid(), answers: z.array(z.number().int().min(1).max(5)).length(7), comment: z.string().max(1000).optional() });
+const answerSet = z.object({ assignmentId: z.uuid(), answers: z.array(z.number().int().min(1).max(5)).length(QUESTION_COUNT), comment: z.string().max(1000).optional() });
 const submission = z.object({ deviceId: z.string().min(16).max(128), language: z.string().max(12), responses: z.array(answerSet).min(1).max(4) });
 
 async function findSession(token: string) {

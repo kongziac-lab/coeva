@@ -17,16 +17,15 @@ export async function listTerms(db: Db = getDb()) {
   return db.select().from(terms).orderBy(desc(terms.startsAt), asc(terms.code));
 }
 
-// 학기에 설문이 없으면 직전 학기 설문(없으면 기본 7문항)을 복사해 v1로 만든다.
+// 학기에 설문이 없으면 현재 표준 평가서(lib/survey-questions)로 v1을 만든다.
 export async function ensureQuestionnaire(tx: Db | Tx, termId: string) {
   const [existing] = await tx.select({ id: questionnaireVersions.id }).from(questionnaireVersions).where(eq(questionnaireVersions.termId, termId)).limit(1);
   if (existing) return existing.id;
-  const [previous] = await tx.select({ title: questionnaireVersions.title, questions: questionnaireVersions.questions }).from(questionnaireVersions).orderBy(desc(questionnaireVersions.version)).limit(1);
   const [created] = await tx.insert(questionnaireVersions).values({
     termId,
     version: 1,
-    title: previous?.title ?? "강의 평가서",
-    questions: previous?.questions ?? surveyQuestions,
+    title: "강의 평가서",
+    questions: surveyQuestions,
   }).returning({ id: questionnaireVersions.id });
   return created.id;
 }

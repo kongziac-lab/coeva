@@ -5,10 +5,10 @@ import { surveyQuestions } from "@/lib/survey-questions";
 
 export default function QuestionnairePage() {
   return <AdminShell active="/admin/questionnaire" title="설문 관리"><div className="content">
-    <div className="page-head"><div><h1>설문 관리</h1><p>강사별로 동일한 5점 척도 7문항과 선택형 자유의견을 사용합니다.</p></div></div>
+    <div className="page-head"><div><h1>설문 관리</h1><p>강사별로 동일한 5점 척도 8문항과 선택형 자유의견(모국어 가능)을 사용합니다.</p></div></div>
     <section className="grid-2">
       <div className="card questionnaire-card">
-        <div className="questionnaire-heading"><div><span className="status NORMAL"><CheckCircle2 size={12} />사용 중</span><h2>강의 평가서 v1</h2><div>5점 척도 7문항 · 자유의견 1문항</div></div><LockKeyhole color="#5b6b84" /></div>
+        <div className="questionnaire-heading"><div><span className="status NORMAL"><CheckCircle2 size={12} />사용 중</span><h2>강의 평가서 v2</h2><div>5점 척도 8문항 · 자유의견 1문항</div></div><LockKeyhole color="#5b6b84" /></div>
         <div className="questionnaire-notice"><strong>평가 전 확인</strong><span>학생은 화면 캡처·외부 유포 금지 안내를 확인한 후 평가를 시작합니다.</span></div>
         <div>{surveyQuestions.map((question, index) => <div key={question} className="questionnaire-row"><strong>{index + 1}</strong>{question}</div>)}</div>
       </div>

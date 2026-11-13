@@ -66,7 +66,7 @@ export function TermsPanel() {
         <label className="field"><span>종료일</span><input type="date" value={form.endsOn} onChange={(event) => setForm({ ...form, endsOn: event.target.value })} required /></label>
       </div>
       <label className="notice-check"><input type="checkbox" checked={form.activate} onChange={(event) => setForm({ ...form, activate: event.target.checked })} />만든 뒤 바로 운영 학기로 지정</label>
-      <p className="terms-help">설문은 직전 학기 설문을 그대로 복사해 연결합니다. 진행 중인 현장 평가가 있으면 학기를 전환할 수 없습니다.</p>
+      <p className="terms-help">설문은 현재 강의 평가서(8문항)로 연결합니다. 진행 중인 현장 평가가 있으면 학기를 전환할 수 없습니다.</p>
       <button className="btn btn-primary" type="submit" disabled={busy}><Plus size={15} />학기 만들기</button>
     </form>
   </div>;
