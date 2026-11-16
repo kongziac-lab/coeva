@@ -368,6 +368,23 @@ a.term-badge:hover { border-color: var(--blue-mid); background: var(--tint); }
 .terms-form .btn { justify-self: start; }
 .terms-help { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
 .results-term-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.comment-count-link { color: var(--navy); font-weight: 700; text-decoration: none; }
+.comment-count-link:hover { text-decoration: underline; }
+.comment-count-none { color: var(--faint); }
+.comment-filter { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 16px; }
+.comment-filter label { font-size: 13px; font-weight: 700; color: var(--slate); }
+.comment-filter select { min-width: 220px; max-width: 100%; border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; font: inherit; font-size: 14px; background: #fff; color: var(--ink); }
+.comment-filter .btn { padding: 9px 14px; }
+.comment-group { margin-bottom: 16px; overflow: hidden; }
+.comment-group header { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--line); background: #f5f7fb; }
+.comment-group h2 { margin: 0; font-size: 16px; color: var(--navy-deep); }
+.comment-group header span { color: var(--muted); font-size: 12px; font-weight: 700; }
+.comment-group ul { list-style: none; margin: 0; padding: 0; }
+.comment-group li { padding: 14px 20px; border-bottom: 1px solid var(--line-soft); }
+.comment-group li:last-child { border-bottom: 0; }
+.comment-group li p { margin: 0 0 6px; font-size: 14px; line-height: 1.65; color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; }
+.comment-meta { font-size: 12px; color: var(--muted); }
+@media (max-width: 560px) { .comment-filter select { min-width: 0; flex: 1; } .comment-group header, .comment-group li { padding-left: 16px; padding-right: 16px; } }
 @media (max-width: 760px) { .terms-form-grid { grid-template-columns: 1fr; } .terms-layout .data-table { min-width: 640px; } }
 
 /* ── Session reset controls ── */
