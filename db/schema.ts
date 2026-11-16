@@ -56,7 +56,7 @@ export const participation = pgTable("participation", {
 export const anonymousResponses = pgTable("anonymous_responses", {
   id: uuid("id").defaultRandom().primaryKey(), sessionId: uuid("session_id").notNull().references(() => evaluationSessions.id),
   assignmentId: uuid("assignment_id").notNull().references(() => teachingAssignments.id), answers: jsonb("answers").notNull(),
-  comment: text("comment"), language: text("language").default("ko").notNull(), submittedAt: timestamp("submitted_at", { withTimezone: true }).defaultNow().notNull(), valid: boolean("valid").default(true).notNull(),
+  comment: text("comment"), commentKo: text("comment_ko"), commentTranslatedAt: timestamp("comment_translated_at", { withTimezone: true }), language: text("language").default("ko").notNull(), submittedAt: timestamp("submitted_at", { withTimezone: true }).defaultNow().notNull(), valid: boolean("valid").default(true).notNull(),
 }, (t) => [index("responses_assignment_idx").on(t.assignmentId), index("responses_session_idx").on(t.sessionId)]);
 
 export const termResults = pgTable("term_results", {

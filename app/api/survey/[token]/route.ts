@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { and, eq, inArray, ne, or } from "drizzle-orm";
 import { z } from "zod";
 import { anonymousResponses, classes, evaluationSessions, participation, questionnaireVersions, teachingAssignments, instructors } from "@/db/schema";
+import { translateResponseComments } from "@/lib/comments";
 import { getDb } from "@/lib/db";
 import { hashSubject, hashToken } from "@/lib/security";
 import { getSurveyPayload } from "@/lib/survey-session";
@@ -58,7 +59,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     // 마감 뒤 유예 시간에는 마감 전에 "평가 시작"을 누른 학생만 제출할 수 있다.
     if(grace&&existing[0]?.status!=="IN_PROGRESS")return NextResponse.json({error:"session_unavailable"},{status:410});
     const elsewhere=await completedElsewhereInTerm(db,session.termId,session.classId,session.id,parsed.data.deviceId,kgasSubject); if(elsewhere)return duplicateError(elsewhere);
-    await db.transaction(async tx=>{if(existing[0]){await tx.update(participation).set({status:"COMPLETED",completedAssignments:parsed.data.responses.length,completedAt:new Date(),lastSeenAt:new Date()}).where(eq(participation.id,existing[0].id));}else{await tx.insert(participation).values({sessionId:session.id,subjectHash,deviceHash,status:"COMPLETED",completedAssignments:parsed.data.responses.length,completedAt:new Date(),lastSeenAt:new Date()});}await tx.insert(anonymousResponses).values(parsed.data.responses.map(r=>({sessionId:session.id,assignmentId:r.assignmentId,answers:r.answers,comment:r.comment?.trim()||null,language:parsed.data.language})));});
+    const inserted=await db.transaction(async tx=>{if(existing[0]){await tx.update(participation).set({status:"COMPLETED",completedAssignments:parsed.data.responses.length,completedAt:new Date(),lastSeenAt:new Date()}).where(eq(participation.id,existing[0].id));}else{await tx.insert(participation).values({sessionId:session.id,subjectHash,deviceHash,status:"COMPLETED",completedAssignments:parsed.data.responses.length,completedAt:new Date(),lastSeenAt:new Date()});}return tx.insert(anonymousResponses).values(parsed.data.responses.map(r=>({sessionId:session.id,assignmentId:r.assignmentId,answers:r.answers,comment:r.comment?.trim()||null,language:parsed.data.language}))).returning({id:anonymousResponses.id,comment:anonymousResponses.comment});});
+    // 자유의견 번역은 응답을 돌려준 뒤에 한다. 실패해도 관리자가 자유의견 화면을 열 때 다시 시도한다.
+    const withComment=inserted.filter(r=>r.comment).map(r=>r.id); if(withComment.length)after(()=>translateResponseComments(db,withComment).catch(()=>undefined));
     if(grace)await recalculateClassTerm(session.classId);
     return NextResponse.json({ok:true,receipt:crypto.randomUUID().slice(0,8).toUpperCase()});
   } catch(error){if(error instanceof Error&&error.message.includes("unique"))return NextResponse.json({error:"already_submitted"},{status:409});return NextResponse.json({error:"service_unavailable"},{status:503});}

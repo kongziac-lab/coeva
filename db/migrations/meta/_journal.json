@@ -57,6 +57,13 @@
       "when": 1793950101877,
       "tag": "0007_optional_class_schedule",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1794806400000,
+      "tag": "0008_comment_translation",
+      "breakpoints": true
     }
   ]
 }

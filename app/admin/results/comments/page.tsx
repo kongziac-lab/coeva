@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { ArrowLeft, Download, MessageSquareText } from "lucide-react";
 import { AdminShell } from "@/components/admin-shell";
-import { listTermComments, type TermComment } from "@/lib/comments";
+import { listTermComments, translatePendingTermComments, type TermComment } from "@/lib/comments";
 import { getDb } from "@/lib/db";
 import { languageNamesKo, locales, type Locale } from "@/lib/i18n";
 import { listTerms } from "@/lib/terms";
+import { translationEnabled } from "@/lib/translate";
 
 const uuidPattern = /^[0-9a-f-]{36}$/i;
 const first = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
@@ -23,7 +24,11 @@ export default async function CommentsPage({ searchParams }: { searchParams: Pro
     const db = getDb();
     termOptions = (await listTerms(db)).map((term) => ({ id: term.id, name: term.name, active: term.active }));
     selected = termOptions.find((term) => term.id === requestedTerm) ?? termOptions.find((term) => term.active) ?? termOptions[0] ?? null;
-    if (selected) allComments = await listTermComments(db, selected.id);
+    if (selected) {
+      // 번역 오류가 화면을 막지 않도록, 실패하면 원문만 보여 준다.
+      await translatePendingTermComments(db, selected.id).catch(() => undefined);
+      allComments = await listTermComments(db, selected.id);
+    }
   } catch { /* Show empty state. */ }
 
   const instructorOptions = [...new Map(allComments.map((row) => [row.instructorId, row.instructorName])).entries()].map(([id, name]) => ({ id, name, count: allComments.filter((row) => row.instructorId === id).length }));
@@ -41,7 +46,7 @@ export default async function CommentsPage({ searchParams }: { searchParams: Pro
   const resultsHref = selected ? `/admin/results?${termQuery}` : "/admin/results";
 
   return <AdminShell active="/admin/results" title="자유의견"><div className="content">
-    <div className="page-head"><div><h1>강사별 자유의견</h1><p>{selected ? `${selected.name} · ` : ""}학생이 설문 마지막 칸에 남긴 의견을 원문 그대로 보여 줍니다.</p></div><div className="page-head-actions"><Link href={resultsHref} className="btn btn-secondary"><ArrowLeft size={16} />평가 결과</Link><a href={exportHref} className="btn btn-secondary"><Download size={16} />자유의견 내보내기</a></div></div>
+    <div className="page-head"><div><h1>강사별 자유의견</h1><p>{selected ? `${selected.name} · ` : ""}학생이 설문 마지막 칸에 남긴 의견입니다. 외국어 의견은 원문 아래에 한국어 번역을 붙입니다.</p></div><div className="page-head-actions"><Link href={resultsHref} className="btn btn-secondary"><ArrowLeft size={16} />평가 결과</Link><a href={exportHref} className="btn btn-secondary"><Download size={16} />자유의견 내보내기</a></div></div>
     {termOptions.length > 1 && <nav className="results-term-tabs" aria-label="학기 선택">{termOptions.map((term) => <Link key={term.id} href={`/admin/results/comments?term=${term.id}`} className={`filter-button ${term.id === selected?.id ? "active" : ""}`} aria-current={term.id === selected?.id ? "page" : undefined}>{term.name}{term.active && <span>운영 중</span>}</Link>)}</nav>}
     {instructorOptions.length > 0 && <form className="comment-filter" method="get" action="/admin/results/comments">
       {selected && <input type="hidden" name="term" value={selected.id} />}
@@ -52,11 +57,12 @@ export default async function CommentsPage({ searchParams }: { searchParams: Pro
       </select>
       <button className="btn btn-secondary" type="submit">보기</button>
     </form>}
-    <div style={{background:'#eef3fb',border:'1px solid #dce8fb',borderRadius:12,padding:'13px 16px',fontSize:12,color:'#1d4a8f',marginBottom:18,lineHeight:1.6}}>응답은 익명입니다. 수강생이 적은 반은 반·날짜만으로도 작성자가 짐작될 수 있으니, 강사에게 전달할 때는 원문 대신 요약을 권합니다.</div>
+    {!translationEnabled() && allComments.length > 0 && <div className="comment-notice">한국어 번역이 꺼져 있습니다. 서버에 ANTHROPIC_API_KEY를 설정하면 외국어 의견에 번역이 붙습니다.</div>}
+    <div style={{background:'#eef3fb',border:'1px solid #dce8fb',borderRadius:12,padding:'13px 16px',fontSize:12,color:'#1d4a8f',marginBottom:18,lineHeight:1.6}}>번역은 Claude가 자동으로 한 것이라 틀릴 수 있으니, 중요한 판단은 원문과 함께 확인하세요. 응답은 익명입니다. 수강생이 적은 반은 반·날짜만으로도 작성자가 짐작될 수 있으니, 강사에게 전달할 때는 원문 대신 요약을 권합니다.</div>
     {groups.size === 0 ? <section className="card empty-state"><MessageSquareText size={28} /><h2>자유의견이 없습니다</h2><p>{selected ? `${selected.name}에 제출된 자유의견이 없습니다.` : "등록된 학기가 없습니다."}</p></section>
       : [...groups.entries()].map(([id, group]) => <section key={id} className="card comment-group">
         <header><h2>{group.name}</h2><span>{group.rows.length}건</span></header>
-        <ul>{group.rows.map((row) => <li key={row.id}><p lang={row.language}>{row.comment}</p><div className="comment-meta">{row.classCode}반 · {languageLabel(row.language)} · {dateLabel(row.submittedAt)}</div></li>)}</ul>
+        <ul>{group.rows.map((row) => <li key={row.id}><p lang={row.language}>{row.comment}</p>{row.commentKo && <p className="comment-translation" lang="ko"><span>한국어 번역</span>{row.commentKo}</p>}<div className="comment-meta">{row.classCode}반 · {languageLabel(row.language)} · {dateLabel(row.submittedAt)}</div></li>)}</ul>
       </section>)}
   </div></AdminShell>;
 }

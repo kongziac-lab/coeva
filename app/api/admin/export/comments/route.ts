@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { terms } from "@/db/schema";
 import { getAdminSession } from "@/lib/auth";
-import { listTermComments } from "@/lib/comments";
+import { listTermComments, translatePendingTermComments } from "@/lib/comments";
 import { getDb } from "@/lib/db";
 import { languageNamesKo, locales, type Locale } from "@/lib/i18n";
 import { getActiveTerm } from "@/lib/terms";
@@ -25,8 +25,9 @@ export async function GET(request: Request) {
   const term = termId ? (await db.select().from(terms).where(eq(terms.id, termId)).limit(1))[0] : await getActiveTerm(db);
   if (!term) return NextResponse.json({ error: "term_not_found" }, { status: 404 });
 
+  await translatePendingTermComments(db, term.id).catch(() => undefined);
   const rows = await listTermComments(db, term.id, instructorId ?? undefined);
-  const header = ["학기", "강사", "분반", "언어", "제출일", "자유의견"];
+  const header = ["학기", "강사", "분반", "언어", "제출일", "자유의견(원문)", "한국어 번역"];
   const data = rows.map((row) => [
     term.name,
     row.instructorName,
@@ -34,6 +35,7 @@ export async function GET(request: Request) {
     locales.includes(row.language as Locale) ? languageNamesKo[row.language as Locale] : row.language,
     row.submittedAt.toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul" }),
     row.comment,
+    row.commentKo ?? "",
   ]);
   // 엑셀이 =, +, -, @ 로 시작하는 학생 입력을 수식으로 실행하지 않도록 앞에 '를 붙인다.
   const cell = (value: unknown) => {
@@ -41,6 +43,6 @@ export async function GET(request: Request) {
     const safe = /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
     return `"${safe.replaceAll('"', '""')}"`;
   };
-  const csv = "﻿" + [header, ...data].map((row) => row.map(cell).join(",")).join("\r\n");
+  const csv = "\uFEFF" + [header, ...data].map((row) => row.map(cell).join(",")).join("\r\n");
   return new NextResponse(csv, { headers: { "content-type": "text/csv; charset=utf-8", "content-disposition": `attachment; filename="lecture-evaluation-comments.csv"` } });
 }

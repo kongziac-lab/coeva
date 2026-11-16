@@ -384,6 +384,9 @@ a.term-badge:hover { border-color: var(--blue-mid); background: var(--tint); }
 .comment-group li:last-child { border-bottom: 0; }
 .comment-group li p { margin: 0 0 6px; font-size: 14px; line-height: 1.65; color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; }
 .comment-meta { font-size: 12px; color: var(--muted); }
+.comment-group li p.comment-translation { margin-top: -2px; padding: 8px 12px; border-left: 3px solid var(--blue-mid); border-radius: 0 8px 8px 0; background: var(--tint); color: var(--slate); }
+.comment-translation span { display: block; margin-bottom: 2px; font-size: 11px; font-weight: 700; color: var(--navy); letter-spacing: .02em; }
+.comment-notice { background: var(--amber-soft); border: 1px solid rgba(168, 114, 15, .2); border-radius: 12px; padding: 13px 16px; font-size: 12px; color: var(--amber); margin-bottom: 12px; line-height: 1.6; }
 @media (max-width: 560px) { .comment-filter select { min-width: 0; flex: 1; } .comment-group header, .comment-group li { padding-left: 16px; padding-right: 16px; } }
 @media (max-width: 760px) { .terms-form-grid { grid-template-columns: 1fr; } .terms-layout .data-table { min-width: 640px; } }
 
